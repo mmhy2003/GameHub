@@ -6,6 +6,8 @@ import TicTacToe from "@/components/games/TicTacToe";
 import Battleships from "@/components/games/Battleships";
 import Tetris from "@/components/games/Tetris";
 import PingPong from "@/components/games/PingPong";
+import ConnectFour from "@/components/games/ConnectFour";
+import RockPaperScissors from "@/components/games/RockPaperScissors";
 
 function RoomContent() {
   const router = useRouter();
@@ -121,6 +123,10 @@ function RoomContent() {
          return <Tetris ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        case "ping-pong":
          return <PingPong ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       case "connect-four":
+         return <ConnectFour ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       case "rock-paper-scissors":
+         return <RockPaperScissors ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        default:
          return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-rose-500 font-mono">Unknown Game Type: {gameType}</div>;
      }
