@@ -32,6 +32,8 @@ function RoomContent() {
   // Chat State
   const [chatMessages, setChatMessages] = useState<{sender: string, message: string, timestamp: number}[]>([]);
   const [messageInput, setMessageInput] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ function RoomContent() {
         }
       } else if (data.type === "chat") {
         setChatMessages(prev => [...prev, data]);
+        setUnreadCount(prev => chatOpen ? 0 : prev + 1);
       } else if (data.type === "error") {
         setRoomError(data.message);
       }
@@ -174,62 +177,77 @@ function RoomContent() {
 
       {/* Chat Area — hidden when ?chat=false */}
       {chatEnabled && (
-      <div className="w-full h-[50vh] md:h-screen md:w-96 min-w-[320px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shadow-2xl z-20">
-        <div className="p-3 md:p-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur z-10 flex justify-between items-center">
+      <div className={`w-full md:h-screen md:w-96 md:min-w-[320px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shadow-2xl z-20 transition-all duration-300
+        ${chatOpen ? "h-[38vh]" : "h-auto"}`}>
+        {/* Chat header — always visible, tap to toggle on mobile */}
+        <div
+          className="p-3 md:p-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur z-10 flex justify-between items-center cursor-pointer md:cursor-default select-none"
+          onClick={() => { setChatOpen(o => !o); setUnreadCount(0); }}
+        >
           <div>
-            <h2 className="font-semibold text-slate-200">Room Chat</h2>
+            <h2 className="font-semibold text-slate-200 flex items-center gap-2">
+              Room Chat
+              {!chatOpen && unreadCount > 0 && (
+                <span className="text-[10px] bg-indigo-600 text-white font-bold px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+              )}
+            </h2>
             <p className="text-[10px] md:text-xs text-slate-500">{players.length} player(s) joined</p>
           </div>
+          {/* Chevron toggle — mobile only */}
+          <span className="md:hidden text-slate-500 text-xs">{chatOpen ? "▼ Hide" : "▲ Show"}</span>
         </div>
         
-        <div className="flex-1 p-3 md:p-4 overflow-y-auto space-y-4 custom-scrollbar">
-          {chatMessages.map((msg, idx) => {
-            const isMe = msg.sender === username;
-            const isSystem = msg.sender === "System";
-            
-            if (isSystem) {
+        {/* Messages + input — always visible on desktop, toggle on mobile */}
+        <div className={`flex-col flex-1 overflow-hidden ${chatOpen ? "flex" : "hidden md:flex"}`}>
+          <div className="flex-1 p-3 md:p-4 overflow-y-auto space-y-4 custom-scrollbar">
+            {chatMessages.map((msg, idx) => {
+              const isMe = msg.sender === username;
+              const isSystem = msg.sender === "System";
+              
+              if (isSystem) {
+                return (
+                  <div key={idx} className="flex justify-center my-2 animate-fade-in">
+                    <span className="text-[10px] md:text-[11px] font-medium bg-slate-800/80 text-slate-400 px-3 py-1 rounded-full border border-slate-700/50 text-center max-w-[90%]">
+                      {msg.message}
+                    </span>
+                  </div>
+                );
+              }
+
               return (
-                <div key={idx} className="flex justify-center my-2 animate-fade-in">
-                  <span className="text-[10px] md:text-[11px] font-medium bg-slate-800/80 text-slate-400 px-3 py-1 rounded-full border border-slate-700/50 text-center max-w-[90%]">
-                    {msg.message}
-                  </span>
+                <div key={idx} className={`flex flex-col animate-fade-in ${isMe ? "items-end" : "items-start"}`}>
+                  <span className="text-[9px] md:text-[10px] font-medium text-slate-500 mb-1 px-1 uppercase tracking-wider">{msg.sender}</span>
+                  <div className={`px-3 py-2 md:px-4 md:py-2 opacity-90 rounded-2xl max-w-[85%] ${
+                    isMe 
+                      ? "bg-indigo-600 text-slate-100 rounded-tr-sm shadow-md shadow-indigo-900/20" 
+                      : "bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700 shadow-sm"
+                  }`}>
+                    <p className="text-[13px] md:text-[15px] leading-relaxed break-words">{msg.message}</p>
+                  </div>
                 </div>
               );
-            }
+            })}
+            <div ref={chatEndRef} />
+          </div>
 
-            return (
-              <div key={idx} className={`flex flex-col animate-fade-in ${isMe ? "items-end" : "items-start"}`}>
-                <span className="text-[9px] md:text-[10px] font-medium text-slate-500 mb-1 px-1 uppercase tracking-wider">{msg.sender}</span>
-                <div className={`px-3 py-2 md:px-4 md:py-2 opacity-90 rounded-2xl max-w-[85%] ${
-                  isMe 
-                    ? "bg-indigo-600 text-slate-100 rounded-tr-sm shadow-md shadow-indigo-900/20" 
-                    : "bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700 shadow-sm"
-                }`}>
-                  <p className="text-[13px] md:text-[15px] leading-relaxed break-words">{msg.message}</p>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={chatEndRef} />
-        </div>
-
-        <div className="p-3 md:p-4 bg-slate-950 border-t border-slate-800">
-          <form onSubmit={handleSendMessage} className="flex gap-2">
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              placeholder="Type a message..."
-              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-200 placeholder-slate-500 shadow-inner"
-            />
-            <button 
-              type="submit"
-              disabled={!messageInput.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl p-2 md:p-3 flex items-center justify-center transition-colors shadow-sm"
-            >
-              <Send size={18} />
-            </button>
-          </form>
+          <div className="p-3 md:p-4 bg-slate-950 border-t border-slate-800">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-200 placeholder-slate-500 shadow-inner"
+              />
+              <button 
+                type="submit"
+                disabled={!messageInput.trim()}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl p-2 md:p-3 flex items-center justify-center transition-colors shadow-sm"
+              >
+                <Send size={18} />
+              </button>
+            </form>
+          </div>
         </div>
       </div>
       )}
