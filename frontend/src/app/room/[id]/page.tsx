@@ -153,7 +153,7 @@ function RoomContent() {
             <span className="hidden md:inline">Dashboard</span>
           </button>
           <div className="text-center absolute left-1/2 -translate-x-1/2">
-            <h1 className="text-lg md:text-xl font-bold font-mono tracking-tight text-indigo-400">ROOM: {roomId}</h1>
+            <h1 className="text-lg md:text-xl font-bold font-mono tracking-tight text-indigo-400">ROOM: {roomId.length > 6 ? roomId.slice(0, 6) + "…" : roomId}</h1>
             <p className="text-[10px] md:text-xs text-slate-500 capitalize">{gameType.replace("-", " ")}</p>
           </div>
           <div className="flex items-center gap-2 text-slate-300 bg-slate-800 px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium border border-slate-700">
