@@ -59,7 +59,7 @@ function HomeContent() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 md:py-12 px-4 sm:px-6 selection:bg-indigo-500/30">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 md:py-12 pb-16 px-4 sm:px-6 selection:bg-indigo-500/30">
       <div className="absolute top-0 w-full h-96 bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none" />
       
       <header className="mb-10 md:mb-16 text-center space-y-3 md:space-y-4 relative z-10">
