@@ -7,8 +7,12 @@ RUN npm install
 
 COPY . .
 
-# Disable Next.js telemetry at build and runtime
-ENV NEXT_TELEMETRY_DISABLED=1
+# Accept build-time variables from docker-compose (env_file / args)
+ARG NEXT_PUBLIC_BACKEND_URL
+ARG NEXT_TELEMETRY_DISABLED=1
+
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED
 
 RUN npm run build
 

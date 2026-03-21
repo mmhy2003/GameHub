@@ -186,3 +186,6 @@ ehthumbs_vista.db
 *.swn
 *.bak
 *~
+
+# Environment files
+.env
