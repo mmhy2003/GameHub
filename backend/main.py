@@ -129,6 +129,18 @@ def read_root():
 
 @app.websocket("/ws/{game_type}/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, game_type: str, room_id: str, username: str):
+    # Check for game type conflict before joining
+    existing_room = manager.rooms.get(room_id)
+    if existing_room and existing_room.game_type != game_type:
+        await websocket.accept()
+        await websocket.send_json({
+            "type": "error",
+            "code": "ROOM_TYPE_MISMATCH",
+            "message": f"Room '{room_id}' is already running a '{existing_room.game_type}' game. Use a different room code."
+        })
+        await websocket.close()
+        return
+
     room = manager.get_or_create_room(room_id, game_type)
     await room.connect(websocket, username)
     try:
