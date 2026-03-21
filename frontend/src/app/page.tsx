@@ -127,18 +127,17 @@ function HomeContent() {
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">The classic multi-player game of X's and O's. Challenge a friend in real-time.</p>
               
               <form onSubmit={joinTicTacToe} className="mt-auto space-y-3 relative z-10">
-                <input
-                  type="text"
-                  placeholder="Room Code (optional)"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm"
-                >
-                  {roomId.trim() ? "Join Room" : "Create New Game"}
+                {!paramRoom && (
+                  <input
+                    type="text"
+                    placeholder="Room Code (optional)"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
+                  />
+                )}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">
+                  {paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}
                 </button>
               </form>
             </div>
@@ -157,18 +156,17 @@ function HomeContent() {
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Command your fleet and sink enemy vessels in strategic naval warfare.</p>
               
               <form onSubmit={(e) => { e.preventDefault(); navigate("battleships"); }} className="mt-auto space-y-3 relative z-10">
-                <input
-                  type="text"
-                  placeholder="Room Code (optional)"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm"
-                >
-                  {roomId.trim() ? "Join Room" : "Create New Game"}
+                {!paramRoom && (
+                  <input
+                    type="text"
+                    placeholder="Room Code (optional)"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
+                  />
+                )}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">
+                  {paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}
                 </button>
               </form>
             </div>
@@ -187,18 +185,17 @@ function HomeContent() {
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Drop blocks and clear lines to send garbage attacks to opposing players.</p>
               
               <form onSubmit={(e) => { e.preventDefault(); navigate("tetris"); }} className="mt-auto space-y-3 relative z-10">
-                <input
-                  type="text"
-                  placeholder="Room Code (optional)"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm"
-                >
-                  {roomId.trim() ? "Join Room" : "Create New Game"}
+                {!paramRoom && (
+                  <input
+                    type="text"
+                    placeholder="Room Code (optional)"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
+                  />
+                )}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">
+                  {paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}
                 </button>
               </form>
             </div>
@@ -217,18 +214,17 @@ function HomeContent() {
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Real-time paddle battle. Deflect the ball and outscore your opponent to 7 points.</p>
 
               <form onSubmit={(e) => { e.preventDefault(); navigate("ping-pong"); }} className="mt-auto space-y-3 relative z-10">
-                <input
-                  type="text"
-                  placeholder="Room Code (optional)"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm"
-                >
-                  {roomId.trim() ? "Join Room" : "Create New Game"}
+                {!paramRoom && (
+                  <input
+                    type="text"
+                    placeholder="Room Code (optional)"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
+                  />
+                )}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">
+                  {paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}
                 </button>
               </form>
             </div>
@@ -244,8 +240,8 @@ function HomeContent() {
               </h3>
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Drop discs and connect four in a row — horizontally, vertically, or diagonally.</p>
               <form onSubmit={(e) => { e.preventDefault(); navigate("connect-four"); }} className="mt-auto space-y-3 relative z-10">
-                <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />
-                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{roomId.trim() ? "Join Room" : "Create New Game"}</button>
+                {!paramRoom && <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}</button>
               </form>
             </div>
 
@@ -260,8 +256,8 @@ function HomeContent() {
               </h3>
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Pick simultaneously and outsmart your rival. First to 3 round victories wins the match.</p>
               <form onSubmit={(e) => { e.preventDefault(); navigate("rock-paper-scissors"); }} className="mt-auto space-y-3 relative z-10">
-                <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />
-                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{roomId.trim() ? "Join Room" : "Create New Game"}</button>
+                {!paramRoom && <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}</button>
               </form>
             </div>
 
