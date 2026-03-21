@@ -261,6 +261,38 @@ function HomeContent() {
               </form>
             </div>
 
+            {/* Hangman Card */}
+            <div className="group w-full md:w-[320px] bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/50 rounded-3xl p-5 transition-all duration-300 shadow-lg relative overflow-hidden flex flex-col">
+              <div className="overflow-hidden rounded-2xl mb-4 w-full h-44 relative shadow-inner ring-1 ring-slate-800">
+                <img src="/games/hangman_cover.png" alt="Hangman" className="w-full h-full object-cover group-hover:scale-110 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent pointer-events-none" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2 group-hover:text-indigo-400 transition-colors relative z-10 flex items-center justify-between">
+                Hangman <Hash size={24} className="text-indigo-500/50" />
+              </h3>
+              <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">One player hides a word, the other guesses letters one at a time. 6 wrong guesses and it's over.</p>
+              <form onSubmit={(e) => { e.preventDefault(); navigate("hangman"); }} className="mt-auto space-y-3 relative z-10">
+                {!paramRoom && <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}</button>
+              </form>
+            </div>
+
+            {/* Number Duel Card */}
+            <div className="group w-full md:w-[320px] bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/50 rounded-3xl p-5 transition-all duration-300 shadow-lg relative overflow-hidden flex flex-col">
+              <div className="overflow-hidden rounded-2xl mb-4 w-full h-44 relative shadow-inner ring-1 ring-slate-800">
+                <img src="/games/number_duel_cover.png" alt="Number Duel" className="w-full h-full object-cover group-hover:scale-110 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent pointer-events-none" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2 group-hover:text-indigo-400 transition-colors relative z-10 flex items-center justify-between">
+                Number Duel <Gamepad2 size={24} className="text-indigo-500/50" />
+              </h3>
+              <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Pick a number 1–100. Closest to the hidden target wins the round. First to 3 wins takes the match.</p>
+              <form onSubmit={(e) => { e.preventDefault(); navigate("number-duel"); }} className="mt-auto space-y-3 relative z-10">
+                {!paramRoom && <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />}
+                <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{paramRoom ? "Join Room" : roomId.trim() ? "Join Room" : "Create New Game"}</button>
+              </form>
+            </div>
+
           </div>
         </div>
       )}
