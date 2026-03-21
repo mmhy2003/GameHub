@@ -7,6 +7,7 @@ from .rock_paper_scissors import RockPaperScissorsLogic
 from .hangman import HangmanLogic
 from .number_duel import NumberDuelLogic
 from .minesweeper import MinesweeperLogic
+from .guess_who import GuessWhoLogic
 
 def get_game_logic(game_type: str):
     if game_type == "tic-tac-toe":
@@ -27,4 +28,6 @@ def get_game_logic(game_type: str):
         return NumberDuelLogic()
     elif game_type == "minesweeper":
         return MinesweeperLogic()
+    elif game_type == "guess-who":
+        return GuessWhoLogic()
     return None
