@@ -1,5 +1,6 @@
 import json
 import time
+import asyncio
 from typing import Dict, List, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,12 +22,15 @@ class GameRoom:
         self.game_type = game_type
         self.players: List[WebSocket] = []
         self.player_names: Dict[WebSocket, str] = {}
-        
+
         # Instantiate game-specific logic
         self.game_logic = get_game_logic(game_type)
-        
-        # Player symbols (username -> X/O, etc. depending on game)
-        self.player_symbols: Dict[str, str] = {} 
+
+        # Player symbols (username -> symbol, e.g. X/O or L/R)
+        self.player_symbols: Dict[str, str] = {}
+
+        # Background game loop task (used by real-time games like Ping-Pong)
+        self.loop_task: Optional[asyncio.Task] = None
 
     async def connect(self, websocket: WebSocket, username: str):
         await websocket.accept()
@@ -54,13 +58,11 @@ class GameRoom:
     def make_move(self, username: str, **kwargs):
         if not self.game_logic:
             return False
-        
-        # Determine the symbol for the user
+
         symbol = self.player_symbols.get(username)
         if not symbol:
             return False
-        
-        # Call game logic
+
         success = self.game_logic.make_move(symbol=symbol, **kwargs)
         return success
 
@@ -68,28 +70,55 @@ class GameRoom:
         if self.game_logic:
             self.game_logic.reset()
 
+    def maybe_start_loop(self):
+        """Starts the server game loop for real-time games (e.g. Ping-Pong) if needed."""
+        if (self.game_logic and
+                getattr(self.game_logic, "needs_server_loop", False) and
+                getattr(self.game_logic, "phase", "") == "playing" and
+                (self.loop_task is None or self.loop_task.done())):
+            self.loop_task = asyncio.create_task(self._game_loop())
+
+    async def _game_loop(self):
+        """30fps server-authoritative game loop for real-time games."""
+        tick_rate = 1 / 30
+        while (self.game_logic and
+               getattr(self.game_logic, "phase", "") == "playing" and
+               len(self.players) > 0):
+            self.game_logic.tick()
+            await self.broadcast_state()
+            # Announce winner when game finishes
+            if getattr(self.game_logic, "winner", None):
+                win_sym = self.game_logic.winner
+                win_name = next(
+                    (u for u, s in self.player_symbols.items() if s == win_sym),
+                    win_sym
+                )
+                await self.broadcast_chat("System", f"{win_name} won the game!")
+                break
+            await asyncio.sleep(tick_rate)
+
     async def broadcast_state(self):
         for connection in list(self.players):
             username = self.player_names.get(connection)
             symbol = self.player_symbols.get(username)
-            
+
             game_state = {}
             if self.game_logic:
                 if hasattr(self.game_logic, "get_state_for_player"):
                     game_state = self.game_logic.get_state_for_player(symbol)
                 else:
                     game_state = self.game_logic.get_state()
-                    
+
             game_state.update({
                 "type": "game_state",
                 "game_type": self.game_type,
                 "players": list(self.player_symbols.keys()),
-                "symbols": self.player_symbols
+                "symbols": self.player_symbols,
             })
-            
+
             try:
                 await connection.send_json(game_state)
-            except Exception as e:
+            except Exception:
                 pass
 
     async def broadcast_chat(self, sender: str, message: str):
@@ -105,7 +134,7 @@ class GameRoom:
         for connection in list(self.players):
             try:
                 await connection.send_json(data)
-            except Exception as e:
+            except Exception:
                 pass
 
 class ConnectionManager:
@@ -143,33 +172,43 @@ async def websocket_endpoint(websocket: WebSocket, game_type: str, room_id: str,
 
     room = manager.get_or_create_room(room_id, game_type)
     await room.connect(websocket, username)
+    room.maybe_start_loop()  # Resume loop if reconnecting to a live game
+
     try:
         while True:
             data = await websocket.receive_text()
             parsed = json.loads(data)
-            
+
             action = parsed.get("action")
-            
+
             if action == "chat":
                 msg = parsed.get("message", "")
                 if msg:
                     await room.broadcast_chat(username, msg)
+
             elif action == "move":
                 move_kwargs = {k: v for k, v in parsed.items() if k != "action"}
                 success = room.make_move(username, **move_kwargs)
                 if success:
-                    await room.broadcast_state()
-                    if room.game_logic and getattr(room.game_logic, "winner", None):
-                        win_sym = room.game_logic.winner
-                        win_name = next((u for u, s in room.player_symbols.items() if s == win_sym), username)
-                        await room.broadcast_chat("System", f"{win_name} won the game!")
-                    elif room.game_logic and getattr(room.game_logic, "is_draw", None):
-                        await room.broadcast_chat("System", "The game ended in a draw.")
+                    # For real-time games the loop broadcasts; for turn-based we broadcast here
+                    if not getattr(room.game_logic, "needs_server_loop", False):
+                        await room.broadcast_state()
+                        if room.game_logic and getattr(room.game_logic, "winner", None):
+                            win_sym = room.game_logic.winner
+                            win_name = next((u for u, s in room.player_symbols.items() if s == win_sym), username)
+                            await room.broadcast_chat("System", f"{win_name} won the game!")
+                        elif room.game_logic and getattr(room.game_logic, "is_draw", None):
+                            await room.broadcast_chat("System", "The game ended in a draw.")
+                    else:
+                        # Broadcast once for lobby state changes, then maybe start loop
+                        await room.broadcast_state()
+                        room.maybe_start_loop()
+
             elif action == "restart":
                 room.reset_game()
                 await room.broadcast_state()
                 await room.broadcast_chat("System", f"Game restarted by {username}.")
-                
+
     except WebSocketDisconnect:
         disc_user = room.disconnect(websocket)
         manager.remove_room_if_empty(room_id)

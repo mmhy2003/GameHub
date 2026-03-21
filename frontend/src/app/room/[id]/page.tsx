@@ -5,6 +5,7 @@ import { Send, ArrowLeft, Loader2 } from "lucide-react";
 import TicTacToe from "@/components/games/TicTacToe";
 import Battleships from "@/components/games/Battleships";
 import Tetris from "@/components/games/Tetris";
+import PingPong from "@/components/games/PingPong";
 
 function RoomContent() {
   const router = useRouter();
@@ -118,6 +119,8 @@ function RoomContent() {
          return <Battleships ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        case "tetris":
          return <Tetris ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       case "ping-pong":
+         return <PingPong ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        default:
          return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-rose-500 font-mono">Unknown Game Type: {gameType}</div>;
      }

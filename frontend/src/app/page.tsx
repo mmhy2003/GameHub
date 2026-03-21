@@ -170,6 +170,36 @@ export default function Home() {
                 </button>
               </form>
             </div>
+
+            {/* Ping-Pong Card */}
+            <div className="group w-full md:w-[320px] bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/50 rounded-3xl p-5 transition-all duration-300 shadow-lg relative overflow-hidden flex flex-col">
+              <div className="overflow-hidden rounded-2xl mb-4 w-full h-44 relative shadow-inner ring-1 ring-slate-800 ring-offset-slate-900/50">
+                <img src="/games/pong_cover.png" alt="Ping-Pong" className="w-full h-full object-cover group-hover:scale-110 group-hover:opacity-90 transition-all duration-700 ease-in-out" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent pointer-events-none"></div>
+              </div>
+
+              <h3 className="text-2xl font-bold mb-2 group-hover:text-indigo-400 transition-colors relative z-10 flex items-center justify-between">
+                Ping-Pong
+                <Gamepad2 size={24} className="text-indigo-500/50" />
+              </h3>
+              <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Real-time paddle battle. Deflect the ball and outscore your opponent to 7 points.</p>
+
+              <form onSubmit={(e) => { e.preventDefault(); router.push(`/room/${roomId.trim() || Math.random().toString(36).substring(2, 8)}?game=ping-pong`); }} className="mt-auto space-y-3 relative z-10">
+                <input
+                  type="text"
+                  placeholder="Room Code (optional)"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600"
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm"
+                >
+                  {roomId.trim() ? "Join Room" : "Create New Game"}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}
