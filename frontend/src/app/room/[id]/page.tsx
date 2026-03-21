@@ -10,6 +10,7 @@ import ConnectFour from "@/components/games/ConnectFour";
 import RockPaperScissors from "@/components/games/RockPaperScissors";
 import Hangman from "@/components/games/Hangman";
 import NumberDuel from "@/components/games/NumberDuel";
+import Minesweeper from "@/components/games/Minesweeper";
 
 function RoomContent() {
   const router = useRouter();
@@ -142,6 +143,8 @@ function RoomContent() {
          return <Hangman ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        case "number-duel":
          return <NumberDuel ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       case "minesweeper":
+         return <Minesweeper ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        default:
          return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-rose-500 font-mono">Unknown Game Type: {gameType}</div>;
      }
