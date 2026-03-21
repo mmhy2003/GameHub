@@ -1,0 +1,203 @@
+"use client";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { Send, ArrowLeft, Loader2 } from "lucide-react";
+import TicTacToe from "@/components/games/TicTacToe";
+import Battleships from "@/components/games/Battleships";
+import Tetris from "@/components/games/Tetris";
+
+function RoomContent() {
+  const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const roomId = params.id as string;
+  const gameType = searchParams.get("game") || "tic-tac-toe"; 
+
+  const [username, setUsername] = useState("");
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  
+  // Game State
+  const [gameState, setGameState] = useState<any>(null);
+  const [players, setPlayers] = useState<string[]>([]);
+  const [mySymbol, setMySymbol] = useState<string | null>(null);
+
+  // Chat State
+  const [chatMessages, setChatMessages] = useState<{sender: string, message: string, timestamp: number}[]>([]);
+  const [messageInput, setMessageInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const savedName = localStorage.getItem("gamehub_username");
+    if (!savedName) {
+      router.push("/");
+      return;
+    }
+    setUsername(savedName);
+
+    // Initialize WebSocket
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+    const wsUrl = backendUrl.replace("http", "ws") + `/ws/${gameType}/${roomId}?username=${encodeURIComponent(savedName)}`;
+    
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "game_state") {
+        setGameState(data);
+        setPlayers(data.players || []);
+        
+        if (data.symbols && data.symbols[savedName]) {
+            setMySymbol(data.symbols[savedName]);
+        }
+      } else if (data.type === "chat") {
+        setChatMessages(prev => [...prev, data]);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log("WebSocket disconnected");
+    };
+
+    setWs(socket);
+
+    return () => {
+      socket.close();
+    };
+  }, [roomId, router, gameType]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageInput.trim() || !ws) return;
+
+    ws.send(JSON.stringify({ action: "chat", message: messageInput.trim() }));
+    setMessageInput("");
+  };
+
+  const handleRestart = () => {
+    if (!ws) return;
+    ws.send(JSON.stringify({ action: "restart" }));
+  };
+
+  if (!username || !ws) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-200 w-full">
+        <Loader2 className="animate-spin text-indigo-500" size={48} />
+      </div>
+    );
+  }
+
+  const renderGame = () => {
+     switch (gameType) {
+       case "tic-tac-toe":
+         return <TicTacToe ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       case "battleships":
+         return <Battleships ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       case "tetris":
+         return <Tetris ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       default:
+         return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-rose-500 font-mono">Unknown Game Type: {gameType}</div>;
+     }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row w-full max-w-full overflow-hidden">
+      {/* Game Area */}
+      <div className="flex-1 flex flex-col relative w-full h-screen">
+        <div className="absolute top-0 w-full h-96 bg-gradient-to-br from-indigo-900/10 to-transparent pointer-events-none" />
+        
+        <header className="p-4 md:p-6 flex items-center justify-between relative z-10 border-b border-slate-800/50 bg-slate-900/20 backdrop-blur-md">
+          <button 
+            onClick={() => router.push("/")}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={20} />
+            <span className="hidden md:inline">Dashboard</span>
+          </button>
+          <div className="text-center absolute left-1/2 -translate-x-1/2">
+            <h1 className="text-lg md:text-xl font-bold font-mono tracking-tight text-indigo-400">ROOM: {roomId}</h1>
+            <p className="text-[10px] md:text-xs text-slate-500 capitalize">{gameType.replace("-", " ")}</p>
+          </div>
+          <div className="flex items-center gap-2 text-slate-300 bg-slate-800 px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium border border-slate-700">
+             {username} <span className="text-slate-500">|</span> <span className={mySymbol === "X" ? "text-blue-400 font-bold" : mySymbol === "O" ? "text-rose-400 font-bold" : "text-slate-400"}>{mySymbol || "Spectating"}</span>
+          </div>
+        </header>
+
+        <main className="flex-1 flex flex-col relative z-0 overflow-y-auto">
+           {renderGame()}
+        </main>
+      </div>
+
+      {/* Chat Area */}
+      <div className="w-full h-[50vh] md:h-screen md:w-96 min-w-[320px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shadow-2xl z-20">
+        <div className="p-3 md:p-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur z-10 flex justify-between items-center">
+          <div>
+            <h2 className="font-semibold text-slate-200">Room Chat</h2>
+            <p className="text-[10px] md:text-xs text-slate-500">{players.length} player(s) joined</p>
+          </div>
+        </div>
+        
+        <div className="flex-1 p-3 md:p-4 overflow-y-auto space-y-4 custom-scrollbar">
+          {chatMessages.map((msg, idx) => {
+            const isMe = msg.sender === username;
+            const isSystem = msg.sender === "System";
+            
+            if (isSystem) {
+              return (
+                <div key={idx} className="flex justify-center my-2 animate-fade-in">
+                  <span className="text-[10px] md:text-[11px] font-medium bg-slate-800/80 text-slate-400 px-3 py-1 rounded-full border border-slate-700/50 text-center max-w-[90%]">
+                    {msg.message}
+                  </span>
+                </div>
+              );
+            }
+
+            return (
+              <div key={idx} className={`flex flex-col animate-fade-in ${isMe ? "items-end" : "items-start"}`}>
+                <span className="text-[9px] md:text-[10px] font-medium text-slate-500 mb-1 px-1 uppercase tracking-wider">{msg.sender}</span>
+                <div className={`px-3 py-2 md:px-4 md:py-2 opacity-90 rounded-2xl max-w-[85%] ${
+                  isMe 
+                    ? "bg-indigo-600 text-slate-100 rounded-tr-sm shadow-md shadow-indigo-900/20" 
+                    : "bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700 shadow-sm"
+                }`}>
+                  <p className="text-[13px] md:text-[15px] leading-relaxed break-words">{msg.message}</p>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={chatEndRef} />
+        </div>
+
+        <div className="p-3 md:p-4 bg-slate-950 border-t border-slate-800">
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input
+              type="text"
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-200 placeholder-slate-500 shadow-inner"
+            />
+            <button 
+              type="submit"
+              disabled={!messageInput.trim()}
+              className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl p-2 md:p-3 flex items-center justify-center transition-colors shadow-sm"
+            >
+              <Send size={18} />
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function RoomPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>}>
+      <RoomContent />
+    </Suspense>
+  )
+}
