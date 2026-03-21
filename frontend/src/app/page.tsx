@@ -1,21 +1,49 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Gamepad2, Hash, ArrowRight, Ship } from "lucide-react";
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL params — set by embedding parent via iframe src
+  const paramName = searchParams.get("name") ?? "";
+  const paramRoom = searchParams.get("room") ?? "";
+  const chatEnabled = searchParams.get("chat") !== "false";
+
   const [username, setUsername] = useState("");
   const [isNameSet, setIsNameSet] = useState(false);
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(paramRoom);
+
+  // Build a query string that forwards all embed params into room URLs
+  const embedParams = (game: string, rid: string) => {
+    const p = new URLSearchParams({ game });
+    if (paramName) p.set("name", paramName);
+    if (!chatEnabled) p.set("chat", "false");
+    return `/room/${rid}?${p.toString()}`;
+  };
+
+  const navigate = (game: string) => {
+    const rid = roomId.trim() || Math.random().toString(36).substring(2, 8);
+    router.push(embedParams(game, rid));
+  };
 
   useEffect(() => {
+    // If name was passed as URL param, use it directly and skip the name form
+    if (paramName) {
+      const trimmed = paramName.trim();
+      localStorage.setItem("gamehub_username", trimmed);
+      setUsername(trimmed);
+      setIsNameSet(true);
+      return;
+    }
     const savedName = localStorage.getItem("gamehub_username");
     if (savedName) {
       setUsername(savedName);
       setIsNameSet(true);
     }
-  }, []);
+  }, [paramName]);
 
   const handleSaveName = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,8 +55,7 @@ export default function Home() {
 
   const joinTicTacToe = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetRoom = roomId.trim() || Math.random().toString(36).substring(2, 8);
-    router.push(`/room/${targetRoom}?game=tic-tac-toe`);
+    navigate("tic-tac-toe");
   };
 
   return (
@@ -77,7 +104,12 @@ export default function Home() {
           
           <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 sm:gap-0 px-2 border-b border-slate-800 pb-3">
              <h2 className="text-lg md:text-xl font-semibold text-slate-300">Game Library</h2>
-             <button onClick={() => { setIsNameSet(false); setUsername(""); localStorage.removeItem("gamehub_username"); }} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors underline decoration-slate-700 underline-offset-4 w-full sm:w-auto text-left sm:text-right">Change Player Name ({username})</button>
+             {!paramName && (
+               <button onClick={() => { setIsNameSet(false); setUsername(""); localStorage.removeItem("gamehub_username"); }} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors underline decoration-slate-700 underline-offset-4 w-full sm:w-auto text-left sm:text-right">Change Player Name ({username})</button>
+             )}
+             {paramName && (
+               <span className="text-sm text-slate-500">Playing as <span className="text-indigo-400 font-medium">{username}</span></span>
+             )}
           </div>
 
           <div className="flex flex-wrap gap-6 justify-center w-full">
@@ -124,7 +156,7 @@ export default function Home() {
               </h3>
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Command your fleet and sink enemy vessels in strategic naval warfare.</p>
               
-              <form onSubmit={(e) => { e.preventDefault(); router.push(`/room/${roomId.trim() || Math.random().toString(36).substring(2, 8)}?game=battleships`); }} className="mt-auto space-y-3 relative z-10">
+              <form onSubmit={(e) => { e.preventDefault(); navigate("battleships"); }} className="mt-auto space-y-3 relative z-10">
                 <input
                   type="text"
                   placeholder="Room Code (optional)"
@@ -154,7 +186,7 @@ export default function Home() {
               </h3>
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Drop blocks and clear lines to send garbage attacks to opposing players.</p>
               
-              <form onSubmit={(e) => { e.preventDefault(); router.push(`/room/${roomId.trim() || Math.random().toString(36).substring(2, 8)}?game=tetris`); }} className="mt-auto space-y-3 relative z-10">
+              <form onSubmit={(e) => { e.preventDefault(); navigate("tetris"); }} className="mt-auto space-y-3 relative z-10">
                 <input
                   type="text"
                   placeholder="Room Code (optional)"
@@ -184,7 +216,7 @@ export default function Home() {
               </h3>
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Real-time paddle battle. Deflect the ball and outscore your opponent to 7 points.</p>
 
-              <form onSubmit={(e) => { e.preventDefault(); router.push(`/room/${roomId.trim() || Math.random().toString(36).substring(2, 8)}?game=ping-pong`); }} className="mt-auto space-y-3 relative z-10">
+              <form onSubmit={(e) => { e.preventDefault(); navigate("ping-pong"); }} className="mt-auto space-y-3 relative z-10">
                 <input
                   type="text"
                   placeholder="Room Code (optional)"
@@ -211,7 +243,7 @@ export default function Home() {
                 Connect Four <Hash size={24} className="text-indigo-500/50" />
               </h3>
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Drop discs and connect four in a row — horizontally, vertically, or diagonally.</p>
-              <form onSubmit={(e) => { e.preventDefault(); router.push(`/room/${roomId.trim() || Math.random().toString(36).substring(2, 8)}?game=connect-four`); }} className="mt-auto space-y-3 relative z-10">
+              <form onSubmit={(e) => { e.preventDefault(); navigate("connect-four"); }} className="mt-auto space-y-3 relative z-10">
                 <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />
                 <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{roomId.trim() ? "Join Room" : "Create New Game"}</button>
               </form>
@@ -227,7 +259,7 @@ export default function Home() {
                 Rock Paper Scissors <Gamepad2 size={24} className="text-indigo-500/50" />
               </h3>
               <p className="text-slate-400 mb-6 flex-grow text-sm relative z-10">Pick simultaneously and outsmart your rival. First to 3 round victories wins the match.</p>
-              <form onSubmit={(e) => { e.preventDefault(); router.push(`/room/${roomId.trim() || Math.random().toString(36).substring(2, 8)}?game=rock-paper-scissors`); }} className="mt-auto space-y-3 relative z-10">
+              <form onSubmit={(e) => { e.preventDefault(); navigate("rock-paper-scissors"); }} className="mt-auto space-y-3 relative z-10">
                 <input type="text" placeholder="Room Code (optional)" value={roomId} onChange={(e) => setRoomId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 transition-all text-slate-200 placeholder-slate-600" />
                 <button type="submit" className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-2.5 rounded-lg transition-all shadow-sm">{roomId.trim() ? "Join Room" : "Create New Game"}</button>
               </form>
@@ -237,5 +269,13 @@ export default function Home() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }

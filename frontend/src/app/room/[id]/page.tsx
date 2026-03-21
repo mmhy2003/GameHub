@@ -14,7 +14,9 @@ function RoomContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const roomId = params.id as string;
-  const gameType = searchParams.get("game") || "tic-tac-toe"; 
+  const gameType = searchParams.get("game") || "tic-tac-toe";
+  const paramName = searchParams.get("name") ?? "";
+  const chatEnabled = searchParams.get("chat") !== "false"; 
 
   const [username, setUsername] = useState("");
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -31,16 +33,20 @@ function RoomContent() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const savedName = localStorage.getItem("gamehub_username");
-    if (!savedName) {
+    // If name is passed via URL param (embedded mode), use it directly
+    const resolvedName = paramName.trim() || localStorage.getItem("gamehub_username") || "";
+    if (!resolvedName) {
       router.push("/");
       return;
     }
-    setUsername(savedName);
+    if (paramName.trim()) {
+      localStorage.setItem("gamehub_username", paramName.trim());
+    }
+    setUsername(resolvedName);
 
     // Initialize WebSocket
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-    const wsUrl = backendUrl.replace("http", "ws") + `/ws/${gameType}/${roomId}?username=${encodeURIComponent(savedName)}`;
+    const wsUrl = backendUrl.replace("http", "ws") + `/ws/${gameType}/${roomId}?username=${encodeURIComponent(resolvedName)}`;
     
     const socket = new WebSocket(wsUrl);
 
@@ -49,8 +55,8 @@ function RoomContent() {
       if (data.type === "game_state") {
         setGameState(data);
         setPlayers(data.players || []);
-        if (data.symbols && data.symbols[savedName]) {
-            setMySymbol(data.symbols[savedName]);
+        if (data.symbols && data.symbols[resolvedName]) {
+            setMySymbol(data.symbols[resolvedName]);
         }
       } else if (data.type === "chat") {
         setChatMessages(prev => [...prev, data]);
@@ -160,7 +166,8 @@ function RoomContent() {
         </main>
       </div>
 
-      {/* Chat Area */}
+      {/* Chat Area — hidden when ?chat=false */}
+      {chatEnabled && (
       <div className="w-full h-[50vh] md:h-screen md:w-96 min-w-[320px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shadow-2xl z-20">
         <div className="p-3 md:p-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur z-10 flex justify-between items-center">
           <div>
@@ -219,6 +226,7 @@ function RoomContent() {
           </form>
         </div>
       </div>
+      )}
     </div>
   );
 }

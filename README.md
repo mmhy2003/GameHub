@@ -13,6 +13,29 @@ A real-time peer-to-peer multiplayer game platform. Two players share a room cod
 | Connect Four | Turn-based | 2 |
 | Rock Paper Scissors | Simultaneous pick | 2 |
 
+## Embedding via iframe
+
+GameHub can be embedded in any web app with no restrictions:
+
+```html
+<iframe
+  src="http://gamehub.example.com/?name=Alice&room=match-001&chat=false"
+  width="1024"
+  height="768"
+  frameborder="0"
+></iframe>
+```
+
+## URL Parameters
+
+| Param | Example | Effect |
+|-------|---------|--------|
+| `name` | `?name=Alice` | Pre-sets player name and skips the name form. Locks player identity (no "Change Name" button). |
+| `room` | `?room=abc123` | Pre-fills the room code on the homepage. All games use this room ID. |
+| `chat` | `?chat=false` | Hides the chat panel entirely (game takes full width). Omit or set `true` to show chat. |
+
+All params set on the homepage are **automatically forwarded** to the game room URL, so they stay in effect throughout the session.
+
 ## Tech Stack
 
 - **Frontend:** Next.js 16 (App Router) · TypeScript · Tailwind CSS
