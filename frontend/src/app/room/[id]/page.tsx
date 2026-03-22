@@ -14,6 +14,7 @@ import Minesweeper from "@/components/games/Minesweeper";
 import GuessWho from "@/components/games/GuessWho";
 import SnakesLadders from "@/components/games/SnakesLadders";
 import Stratego from "@/components/games/Stratego";
+import GameHelp from "@/components/GameHelp";
 
 function RoomContent() {
   const router = useRouter();
@@ -208,6 +209,10 @@ function RoomContent() {
         </header>
 
         <main className="flex-1 flex flex-col relative z-0 overflow-y-auto overflow-x-hidden">
+           {/* Floating help button — top-left of the game area */}
+           <div className="absolute top-2 left-2 z-20">
+             <GameHelp gameType={gameType} />
+           </div>
            {renderGame()}
         </main>
       </div>
