@@ -30,6 +30,7 @@ function RoomContent() {
   const [players, setPlayers] = useState<string[]>([]);
   const [mySymbol, setMySymbol] = useState<string | null>(null);
   const [roomError, setRoomError] = useState<string | null>(null);
+  const [actualGameType, setActualGameType] = useState<string | null>(null);
 
   // Chat State
   const [chatMessages, setChatMessages] = useState<{sender: string, message: string, timestamp: number}[]>([]);
@@ -39,6 +40,10 @@ function RoomContent() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Clear any previous room error when reconnecting (e.g. after clicking "Join Existing Game")
+    setRoomError(null);
+    setActualGameType(null);
+
     // If name is passed via URL param (embedded mode), use it directly
     const resolvedName = paramName.trim() || localStorage.getItem("gamehub_username") || "";
     if (!resolvedName) {
@@ -69,6 +74,7 @@ function RoomContent() {
         setUnreadCount(prev => chatOpen ? 0 : prev + 1);
       } else if (data.type === "error") {
         setRoomError(data.message);
+        if (data.actual_game_type) setActualGameType(data.actual_game_type);
       }
     };
 
@@ -109,18 +115,37 @@ function RoomContent() {
   }
 
   if (roomError) {
+    const joinExistingUrl = actualGameType
+      ? (() => {
+          const p = new URLSearchParams({ game: actualGameType });
+          if (searchParams.get("name")) p.set("name", searchParams.get("name")!);
+          if (searchParams.get("chat") === "false") p.set("chat", "false");
+          return `/room/${roomId}?${p.toString()}`;
+        })()
+      : null;
+
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-200 w-full px-4">
         <div className="bg-slate-900/80 border border-rose-500/40 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl backdrop-blur-md max-w-sm w-full text-center">
           <div className="text-4xl">⚠️</div>
           <h2 className="text-xl font-bold text-rose-400">Room Conflict</h2>
           <p className="text-slate-400 text-sm">{roomError}</p>
-          <button
-            onClick={() => router.push("/")}
-            className="mt-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-semibold transition-all shadow-lg"
-          >
-            Back to Dashboard
-          </button>
+          <div className="flex flex-col gap-2 w-full mt-2">
+            {joinExistingUrl && (
+              <button
+                onClick={() => router.push(joinExistingUrl)}
+                className="w-full px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-semibold transition-all shadow-lg"
+              >
+                Join Existing {actualGameType?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())} Game
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/")}
+              className="w-full px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-200 font-semibold transition-all"
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );

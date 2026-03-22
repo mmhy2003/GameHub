@@ -165,7 +165,8 @@ async def websocket_endpoint(websocket: WebSocket, game_type: str, room_id: str,
         await websocket.send_json({
             "type": "error",
             "code": "ROOM_TYPE_MISMATCH",
-            "message": f"Room '{room_id}' is already running a '{existing_room.game_type}' game. Use a different room code."
+            "actual_game_type": existing_room.game_type,
+            "message": f"Room '{room_id}' is already running a '{existing_room.game_type}' game. Use a different room code or join the existing game."
         })
         await websocket.close()
         return
