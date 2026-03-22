@@ -8,6 +8,7 @@ from .hangman import HangmanLogic
 from .number_duel import NumberDuelLogic
 from .minesweeper import MinesweeperLogic
 from .guess_who import GuessWhoLogic
+from .snakes_ladders import SnakesLaddersLogic
 
 def get_game_logic(game_type: str):
     if game_type == "tic-tac-toe":
@@ -30,4 +31,6 @@ def get_game_logic(game_type: str):
         return MinesweeperLogic()
     elif game_type == "guess-who":
         return GuessWhoLogic()
+    elif game_type == "snakes-ladders":
+        return SnakesLaddersLogic()
     return None

@@ -12,6 +12,7 @@ import Hangman from "@/components/games/Hangman";
 import NumberDuel from "@/components/games/NumberDuel";
 import Minesweeper from "@/components/games/Minesweeper";
 import GuessWho from "@/components/games/GuessWho";
+import SnakesLadders from "@/components/games/SnakesLadders";
 
 function RoomContent() {
   const router = useRouter();
@@ -173,6 +174,8 @@ function RoomContent() {
          return <Minesweeper ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        case "guess-who":
          return <GuessWho ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+       case "snakes-ladders":
+         return <SnakesLadders ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
        default:
          return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-rose-500 font-mono">Unknown Game Type: {gameType}</div>;
      }
