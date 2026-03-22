@@ -33,6 +33,22 @@
   }
 }
 
+/* ── Game control buttons ────────────────────────────────────────────────────
+   Use .game-btn on any button a player holds during gameplay to prevent:
+   - iOS long-press callout (copy/paste/share popup)
+   - Android context menu on press-hold
+   - Text-selection highlight during drag
+   - Grey tap-highlight flash (WebKit)
+*/
+.game-btn {
+  -webkit-touch-callout:   none;
+  -webkit-user-select:     none;
+  user-select:             none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action:            none;
+}
+.game-btn:focus { outline: none; }
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

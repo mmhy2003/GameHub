@@ -158,7 +158,7 @@ export default function Hangman({ ws, gameState, mySymbol, handleRestart }: Hang
                     key={letter}
                     onClick={() => guessLetter(letter)}
                     disabled={isGuessed}
-                    className={`w-9 h-9 rounded-lg text-sm font-bold font-mono transition-all
+                    className={`game-btn w-9 h-9 rounded-lg text-sm font-bold font-mono transition-all
                       ${isGuessed
                         ? isWrong
                           ? "bg-rose-900/60 text-rose-500/50 border border-rose-800/40 cursor-not-allowed"

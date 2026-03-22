@@ -275,29 +275,29 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart }: Tetri
         {/* Rotate button at top center */}
         <button
           onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; const p = { ...pieceRef.current }; p.shape = p.shape[0].map((_, idx) => p.shape.map(row => row[idx]).reverse()); if (!checkCollision(p, boardRef.current)) setPiece(p); }}
-          className="w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg select-none touch-none transition-colors"
+          className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
         >↑</button>
 
         {/* Middle row: Left | Drop | Right */}
         <div className="flex gap-4 items-center">
           <button
             onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; const p = { ...pieceRef.current, x: pieceRef.current.x - 1 }; if (!checkCollision(p, boardRef.current)) setPiece(p); }}
-            className="w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg select-none touch-none transition-colors"
+            className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
           >←</button>
           <button
             onPointerDown={(e) => { e.preventDefault(); dropDown(); }}
-            className="w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg select-none touch-none transition-colors"
+            className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
           >↓</button>
           <button
             onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; const p = { ...pieceRef.current, x: pieceRef.current.x + 1 }; if (!checkCollision(p, boardRef.current)) setPiece(p); }}
-            className="w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg select-none touch-none transition-colors"
+            className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
           >→</button>
         </div>
 
         {/* Hard drop */}
         <button
           onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; let hp = { ...pieceRef.current }; while (!checkCollision({ ...hp, y: hp.y + 1 }, boardRef.current)) hp.y += 1; setPiece(hp); setTimeout(() => mergePiece(), 0); }}
-          className="w-full py-3 bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-500 border border-indigo-500/50 rounded-2xl text-white font-bold text-sm shadow-lg select-none touch-none transition-colors"
+          className="game-btn w-full py-3 bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-500 border border-indigo-500/50 rounded-2xl text-white font-bold text-sm shadow-lg transition-colors"
         >⚡ Hard Drop</button>
       </div>
 

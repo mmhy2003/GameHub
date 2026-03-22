@@ -194,12 +194,13 @@ export default function Stratego({ ws, gameState, mySymbol, handleRestart }: Str
   );
 
   const renderInventory = () => (
-    <div className="flex flex-col gap-2 w-36 shrink-0">
-      <div>
-        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mb-0.5">Pieces to place</p>
+    <div className="flex flex-col gap-2 w-full md:w-36 md:shrink-0">
+      <div className="flex items-center justify-between md:block">
+        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Pieces to place</p>
         <p className="text-[10px] text-slate-600">{placedCount}/{totalPieces} placed</p>
       </div>
-      <div className="flex flex-col gap-1.5">
+      {/* Horizontal scroll on mobile, vertical list on desktop */}
+      <div className="flex flex-row flex-wrap gap-1.5 md:flex-col md:gap-1.5">
         {PIECE_ORDER.map(rank => {
           const count = parseInt(remaining[String(rank)] ?? "0");
           if (count <= 0) return null;
@@ -207,12 +208,13 @@ export default function Stratego({ ws, gameState, mySymbol, handleRestart }: Str
           const isSelected = selectedInventoryRank === rank;
           return (
             <button key={rank} onClick={() => setSelectedInventoryRank(isSelected ? null : rank)}
-              className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-left transition-all
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all
                 ${isSelected ? "border-amber-400 bg-amber-900/40" : "border-slate-700 bg-slate-800/60 hover:border-slate-500"}`}>
               <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${rd.bg}`}>
                 <span className="text-[9px] font-black text-white">{rd.short}</span>
               </div>
-              <div className="flex-1 min-w-0">
+              {/* Hide name on mobile to keep button compact */}
+              <div className="hidden md:flex flex-1 min-w-0">
                 <p className="text-[9px] font-semibold text-slate-200 truncate">{rd.name}</p>
               </div>
               <span className="text-[10px] text-slate-400 font-bold shrink-0">×{count}</span>
@@ -220,7 +222,7 @@ export default function Stratego({ ws, gameState, mySymbol, handleRestart }: Str
           );
         })}
       </div>
-      <div className="flex flex-col gap-1.5 mt-1">
+      <div className="flex flex-row flex-wrap gap-1.5 md:flex-col mt-1">
         <button onClick={() => ws.send(JSON.stringify({ action: "move", action_type: "auto_fill" }))}
           className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-all">
           <Shuffle size={12}/> Auto-fill
@@ -297,25 +299,29 @@ export default function Stratego({ ws, gameState, mySymbol, handleRestart }: Str
         </div>
       )}
 
-      {/* Main layout */}
-      <div className="flex flex-row gap-4 items-start flex-wrap justify-center">
+      {/* Main layout — column on mobile (board first, inventory below), row on desktop */}
+      <div className="flex flex-col-reverse md:flex-row gap-4 items-start flex-wrap justify-center">
 
         {/* Left: inventory (setup only) / legend (playing) */}
         {phase === "setup" && !mySetupDone ? renderInventory() : (
-          <div className="flex flex-col gap-2 w-36 shrink-0 text-[9px] text-slate-500">
+          <div className="flex flex-col gap-2 w-full md:w-36 md:shrink-0 text-[9px] text-slate-500">
             <p className="font-semibold text-slate-400 text-[10px] uppercase tracking-widest">Piece Ranks</p>
-            {[10,9,8,7,6,5,4,3,2,1,11,0].map(rank => {
-              const rd = RANK_DISPLAY[rank] as any;
-              return (
-                <div key={rank} className="flex items-center gap-1.5">
-                  <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${rd.bg}`}>
-                    <span className="text-[8px] font-black text-white">{rd.short}</span>
+            {/* Horizontal wrap on mobile (icon only), vertical list on desktop */}
+            <div className="flex flex-row flex-wrap gap-1.5 md:flex-col md:gap-1.5">
+              {[10,9,8,7,6,5,4,3,2,1,11,0].map(rank => {
+                const rd = RANK_DISPLAY[rank] as any;
+                return (
+                  <div key={rank} className="flex items-center gap-1.5" title={rd.name}>
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${rd.bg}`}>
+                      <span className="text-[8px] font-black text-white">{rd.short}</span>
+                    </div>
+                    {/* Show name only on desktop */}
+                    <span className="hidden md:inline text-slate-400">{rd.name}</span>
                   </div>
-                  <span className="text-slate-400">{rd.name}</span>
-                </div>
-              );
-            })}
-            <div className="border-t border-slate-800 pt-1 mt-1 flex flex-col gap-0.5">
+                );
+              })}
+            </div>
+            <div className="flex flex-row flex-wrap gap-x-3 gap-y-0.5 md:flex-col md:gap-0.5 border-t border-slate-800 pt-1 mt-1">
               <p className="text-slate-600">💡 Spy beats Marshal</p>
               <p className="text-slate-600">💡 Miner defuses Bomb</p>
               <p className="text-slate-600">💡 Scout moves far</p>

@@ -212,17 +212,17 @@ export default function SnakesLadders({ ws, gameState, mySymbol, handleRestart }
         </div>
       )}
 
-      {/* ── Main row: cards LEFT | board+dice RIGHT ── */}
-      <div className="flex flex-row gap-4 items-start flex-wrap justify-center">
+      {/* ── Main row: board+dice TOP on mobile, cards panel BELOW; side-by-side on desktop ── */}
+      <div className="flex flex-col-reverse md:flex-row gap-4 items-start flex-wrap justify-center">
 
-        {/* Left panel: hand + active effects */}
-        <div className="flex flex-col gap-3 w-36 shrink-0">
-          <div>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest mb-0.5">Your Hand</p>
+        {/* Cards panel: horizontal row on mobile, vertical sidebar on desktop */}
+        <div className="flex flex-col gap-2 w-full md:w-36 md:shrink-0">
+          <div className="flex items-center justify-between md:block">
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-widest">Your Hand</p>
             <p className="text-[10px] text-slate-600">Opp: {oppHandCount} cards</p>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-row flex-wrap gap-2 md:flex-col md:gap-2">
             {myHand.map((cid: string, i: number) => {
               const card = cardById(cid);
               if (!card) return null;
@@ -231,22 +231,24 @@ export default function SnakesLadders({ ws, gameState, mySymbol, handleRestart }
                 <button key={`${cid}-${i}`} onClick={() => handlePlayCard(cid)}
                   disabled={!isMyTurn || cardUsed}
                   title={cardUsed ? "Only 1 card per turn" : card.desc}
-                  className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl border text-center transition-all w-full
+                  className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl border text-center transition-all
                     disabled:opacity-40 disabled:cursor-not-allowed active:scale-95
+                    md:w-full
                     ${CARD_COLORS[cid] ?? "border-slate-600 bg-slate-800 hover:bg-slate-700"}`}>
                   <span className="text-xl">{card.emoji}</span>
                   <span className="font-bold text-slate-100 text-[10px] leading-tight">{card.name}</span>
-                  <span className="text-[8px] text-slate-400 leading-tight">{card.desc}</span>
+                  {/* Hide description on mobile to stay compact */}
+                  <span className="hidden md:block text-[8px] text-slate-400 leading-tight">{card.desc}</span>
                 </button>
               );
             })}
             {cardsPlayedThisTurn >= 1 && isMyTurn && (
-              <p className="text-[9px] text-slate-500 text-center italic">1 card per turn used</p>
+              <p className="text-[9px] text-slate-500 text-center italic w-full">1 card per turn used</p>
             )}
           </div>
 
           {/* Active effects */}
-          <div className="flex flex-col gap-1 text-[9px]">
+          <div className="flex flex-row flex-wrap gap-1 md:flex-col text-[9px]">
             {shieldMe    && <span className="bg-cyan-900/40 border border-cyan-500/40 text-cyan-300 px-2 py-1 rounded-lg text-center">🛡️ Shield active</span>}
             {sabotagedMe && <span className="bg-rose-900/40 border border-rose-500/40 text-rose-300 px-2 py-1 rounded-lg text-center">💣 Sabotaged!</span>}
             {dblMe       && <span className="bg-indigo-900/40 border border-indigo-500/40 text-indigo-300 px-2 py-1 rounded-lg text-center">🎲 Double Roll</span>}

@@ -172,11 +172,11 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart }: Pin
 
         {/* Mobile D-pad — touch only */}
         <div className="md:hidden flex gap-4">
-          <button className="w-16 h-16 bg-slate-800 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg touch-none"
+          <button className="game-btn w-16 h-16 bg-slate-800 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg"
             onPointerDown={(e) => { e.preventDefault(); sendPaddle("up"); }}
             onPointerUp={() => sendPaddle("stop")}
             onPointerCancel={() => sendPaddle("stop")}>▲</button>
-          <button className="w-16 h-16 bg-slate-800 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg touch-none"
+          <button className="game-btn w-16 h-16 bg-slate-800 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg"
             onPointerDown={(e) => { e.preventDefault(); sendPaddle("down"); }}
             onPointerUp={() => sendPaddle("stop")}
             onPointerCancel={() => sendPaddle("stop")}>▼</button>
