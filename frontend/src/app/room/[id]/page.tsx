@@ -191,20 +191,26 @@ function RoomContent() {
       <div className="flex-1 flex flex-col relative w-full h-screen">
         <div className="absolute top-0 w-full h-96 bg-gradient-to-br from-indigo-900/10 to-transparent pointer-events-none" />
         
-        <header className="p-4 md:p-6 flex items-center justify-between relative z-10 border-b border-slate-800/50 bg-slate-900/20 backdrop-blur-md">
-          <button 
+        <header className="py-2 px-3 md:px-4 flex items-center justify-between relative z-10 border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-md">
+          <button
             onClick={() => router.push("/")}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
           >
-            <ArrowLeft size={20} />
-            <span className="hidden md:inline">Dashboard</span>
+            <ArrowLeft size={16} />
+            <span className="hidden md:inline text-sm">Dashboard</span>
           </button>
           <div className="text-center absolute left-1/2 -translate-x-1/2">
-            <h1 className="text-lg md:text-xl font-bold font-mono tracking-tight text-indigo-400">ROOM: {roomId.length > 6 ? roomId.slice(0, 6) + "…" : roomId}</h1>
-            <p className="text-[10px] md:text-xs text-slate-500 capitalize">{gameType.replace("-", " ")}</p>
+            <h1 className="text-sm font-bold font-mono tracking-tight text-indigo-400 leading-none">
+              {roomId.length > 6 ? roomId.slice(0, 6) + "…" : roomId}
+              <span className="hidden sm:inline text-slate-500 font-normal"> · {gameType.replace(/-/g, " ")}</span>
+            </h1>
           </div>
-          <div className="flex items-center gap-2 text-slate-300 bg-slate-800 px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium border border-slate-700">
-             {username} <span className="text-slate-500">|</span> <span className={mySymbol === "X" ? "text-blue-400 font-bold" : mySymbol === "O" ? "text-rose-400 font-bold" : "text-slate-400"}>{mySymbol || "Spectating"}</span>
+          <div className="flex items-center gap-1.5 text-slate-300 bg-slate-800 px-2.5 py-1 rounded-full text-xs font-medium border border-slate-700">
+            <span className="hidden sm:inline">{username}</span>
+            <span className="hidden sm:inline text-slate-500">|</span>
+            <span className={mySymbol === "X" ? "text-blue-400 font-bold" : mySymbol === "O" ? "text-rose-400 font-bold" : "text-slate-400"}>
+              {mySymbol || "👁"}
+            </span>
           </div>
         </header>
 
