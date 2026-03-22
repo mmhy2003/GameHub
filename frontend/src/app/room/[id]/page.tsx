@@ -58,9 +58,16 @@ function RoomContent() {
     }
     setUsername(resolvedName);
 
-    // Initialize WebSocket
+    // Get JWT token — redirect to home if missing
+    const token = sessionStorage.getItem("gamehub_token");
+    if (!token) {
+      router.push("/");
+      return;
+    }
+
+    // Initialize WebSocket with JWT token
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-    const wsUrl = backendUrl.replace("http", "ws") + `/ws/${gameType}/${roomId}?username=${encodeURIComponent(resolvedName)}`;
+    const wsUrl = backendUrl.replace("http", "ws") + `/ws/${gameType}/${roomId}?token=${encodeURIComponent(token)}`;
     
     const socket = new WebSocket(wsUrl);
 
@@ -69,13 +76,20 @@ function RoomContent() {
       if (data.type === "game_state") {
         setGameState(data);
         setPlayers(data.players || []);
+        // symbols map is now name→symbol; look up by our display name
         if (data.symbols && data.symbols[resolvedName]) {
-            setMySymbol(data.symbols[resolvedName]);
+          setMySymbol(data.symbols[resolvedName]);
         }
       } else if (data.type === "chat") {
         setChatMessages(prev => [...prev, data]);
         setUnreadCount(prev => chatOpen ? 0 : prev + 1);
       } else if (data.type === "error") {
+        if (data.code === "UNAUTHORIZED") {
+          // Token expired — clear and redirect to get a fresh token
+          sessionStorage.removeItem("gamehub_token");
+          router.push("/");
+          return;
+        }
         setRoomError(data.message);
         if (data.actual_game_type) setActualGameType(data.actual_game_type);
       }

@@ -29,28 +29,59 @@ function HomeContent() {
     router.push(embedParams(game, rid));
   };
 
+  const BACKEND = (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000");
+
+  const fetchToken = async (name: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${BACKEND}/auth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: name }),
+      });
+      if (!res.ok) return null;
+      const { token } = await res.json();
+      return token as string;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     // If name was passed as URL param, use it directly and skip the name form
     if (paramName) {
       const trimmed = paramName.trim();
       localStorage.setItem("gamehub_username", trimmed);
       setUsername(trimmed);
+      // Fetch a token for the embedded user
+      fetchToken(trimmed).then(token => {
+        if (token) sessionStorage.setItem("gamehub_token", token);
+      });
       setIsNameSet(true);
       return;
     }
     const savedName = localStorage.getItem("gamehub_username");
-    if (savedName) {
+    const savedToken = sessionStorage.getItem("gamehub_token");
+    if (savedName && savedToken) {
       setUsername(savedName);
       setIsNameSet(true);
     }
   }, [paramName]);
 
-  const handleSaveName = (e: React.FormEvent) => {
+  const [tokenError, setTokenError] = useState("");
+
+  const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim()) {
-      localStorage.setItem("gamehub_username", username.trim());
-      setIsNameSet(true);
+    const name = username.trim();
+    if (!name) return;
+    setTokenError("");
+    const token = await fetchToken(name);
+    if (!token) {
+      setTokenError("Couldn't reach the server. Please try again.");
+      return;
     }
+    localStorage.setItem("gamehub_username", name);
+    sessionStorage.setItem("gamehub_token", token);
+    setIsNameSet(true);
   };
 
   const joinTicTacToe = (e: React.FormEvent) => {
@@ -90,6 +121,9 @@ function HomeContent() {
                  required
                />
              </div>
+             {tokenError && (
+               <p className="text-rose-400 text-sm text-center">{tokenError}</p>
+             )}
              <button
                type="submit"
                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex justify-center items-center gap-2 group"

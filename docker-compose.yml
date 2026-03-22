@@ -9,6 +9,7 @@ services:
       - .env
     environment:
       - PORT=${BACKEND_PORT:-8000}
+      - JWT_SECRET=${JWT_SECRET:-changeme-use-a-real-secret-in-production}
 
   frontend:
     build:
