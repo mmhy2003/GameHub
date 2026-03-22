@@ -295,8 +295,8 @@ export default function GuessWho({ ws, gameState, mySymbol, handleRestart }: Gue
       </div>
 
       {/* Character Grid */}
-      <p className="text-slate-500 text-xs text-center">Click a character to cross them out. Right-click or tap again to restore.</p>
-      <div className="grid grid-cols-6 gap-1.5">
+      <p className="text-slate-500 text-xs text-center">Click a character to cross them out. Tap again to restore.</p>
+      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
         {CHARACTERS.map(char => {
           const isElim = eliminated.has(char.id);
           const isGuessing = guessMode && char.id !== myChar;
@@ -312,8 +312,11 @@ export default function GuessWho({ ws, gameState, mySymbol, handleRestart }: Gue
             >
               {isElim && <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"><span className="text-2xl">✕</span></div>}
               {char.id === myChar && <div className="absolute -top-1 -right-1 w-3 h-3 bg-indigo-500 rounded-full border border-indigo-300 z-10" />}
-              <CharacterAvatar char={char} size={52} />
+              <CharacterAvatar char={char} size={44} />
               <p className="text-[9px] font-medium text-slate-400 truncate w-full text-center">{char.name}</p>
+              <p className={`text-[10px] font-bold leading-none ${char.gender === "male" ? "text-blue-400" : "text-pink-400"}`}>
+                {char.gender === "male" ? "♂" : "♀"}
+              </p>
             </div>
           );
         })}

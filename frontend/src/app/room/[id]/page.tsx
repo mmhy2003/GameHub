@@ -201,7 +201,7 @@ function RoomContent() {
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col relative z-0 overflow-y-auto">
+        <main className="flex-1 flex flex-col relative z-0 overflow-y-auto overflow-x-hidden">
            {renderGame()}
         </main>
       </div>

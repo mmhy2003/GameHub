@@ -66,12 +66,13 @@ export default function Minesweeper({ ws, gameState, mySymbol, handleRestart }: 
         key={`${r}-${c}`}
         onClick={(e) => handleCellClick(r, c, e)}
         onContextMenu={(e) => handleCellClick(r, c, e)}
-        className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-xs sm:text-sm font-bold font-mono border border-slate-800/60 transition-colors select-none rounded-sm ${bg}`}
+        className={`w-full aspect-square flex items-center justify-center font-bold font-mono border border-slate-800/60 transition-colors select-none rounded-sm ${bg}`}
+        style={{ fontSize: "clamp(7px, 2.2vw, 13px)" }}
         disabled={(!isHidden && !isFlag) || phase === "won" || phase === "lost"}
       >
-        {isFlag && <span className="text-yellow-400 text-xs">🚩</span>}
-        {isExploded && <span className="text-xs">💥</span>}
-        {isMine && <span className="text-xs">💣</span>}
+        {isFlag && <span style={{ fontSize: "clamp(8px,2.5vw,14px)" }}>🚩</span>}
+        {isExploded && <span style={{ fontSize: "clamp(8px,2.5vw,14px)" }}>💥</span>}
+        {isMine && <span style={{ fontSize: "clamp(8px,2.5vw,14px)" }}>💣</span>}
         {isNumber && !isEmpty && (
           <span className={NUM_COLORS[cell] ?? "text-slate-300"}>{cell}</span>
         )}
@@ -131,13 +132,15 @@ export default function Minesweeper({ ws, gameState, mySymbol, handleRestart }: 
       </div>
 
       {/* Board */}
-      <div
-        className="grid gap-0.5 p-3 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      >
-        {board.map((row, r) =>
-          row.map((cell, c) => renderCell(cell, r, c))
-        )}
+      <div className="w-full max-w-[min(calc(100vw-1.5rem),480px)]">
+        <div
+          className="grid gap-0.5 p-2 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl w-full"
+          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+        >
+          {board.map((row, r) =>
+            row.map((cell, c) => renderCell(cell, r, c))
+          )}
+        </div>
       </div>
 
       {/* Overlays */}
