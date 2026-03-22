@@ -32,17 +32,22 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart }: Pin
   const isMyLeft = mySymbol === "L";
   const enemySymbol = isMyLeft ? "R" : "L";
 
-  // Scale field to fit container
+  // Scale field to fit the window.
+  // Using window dimensions directly avoids the clientWidth=0 issue
+  // that occurs in mobile browsers before flex layout settles.
   useEffect(() => {
-    const obs = new ResizeObserver(() => {
-      if (containerRef.current) {
-        const w = containerRef.current.clientWidth - 32;
-        const h = containerRef.current.clientHeight - 32;
-        setScale(Math.min(w / FIELD_W, h / FIELD_H, 1));
-      }
-    });
-    if (containerRef.current) obs.observe(containerRef.current);
-    return () => obs.disconnect();
+    const update = () => {
+      const w = window.innerWidth - 32;
+      // Reserve space for: compact header (~50px) + scoreboard (~70px)
+      // + controls/padding (~130px on mobile, ~60px on desktop)
+      const reservedH = window.innerWidth < 768 ? 260 : 160;
+      const h = window.innerHeight - reservedH;
+      const next = Math.min(w / FIELD_W, Math.max(h, 100) / FIELD_H, 1);
+      setScale(Math.max(next, 0.1)); // guarantee a usable minimum
+    };
+    window.addEventListener("resize", update);
+    update(); // run immediately — window dims are always available
+    return () => window.removeEventListener("resize", update);
   }, [FIELD_W, FIELD_H]);
 
   // Keyboard controls — send paddle state to server
@@ -131,13 +136,13 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart }: Pin
         {/* Centre line */}
         <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-slate-700/60" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0px, transparent 12px, #334155 12px, #334155 24px)" }} />
 
-        {/* Left paddle */}
+        {/* Left paddle — min 8px wide so it's always visible on small screens */}
         <div className="absolute rounded-sm bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.6)]"
-          style={{ left: PADDLE_X * scale, width: PADDLE_W * scale, height: PADDLE_H * scale, top: (leftY - PADDLE_H / 2) * scale }} />
+          style={{ left: PADDLE_X * scale, width: Math.max(PADDLE_W * scale, 8), height: PADDLE_H * scale, top: (leftY - PADDLE_H / 2) * scale }} />
 
         {/* Right paddle */}
         <div className="absolute rounded-sm bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.6)]"
-          style={{ right: PADDLE_X * scale, width: PADDLE_W * scale, height: PADDLE_H * scale, top: (rightY - PADDLE_H / 2) * scale }} />
+          style={{ right: PADDLE_X * scale, width: Math.max(PADDLE_W * scale, 8), height: PADDLE_H * scale, top: (rightY - PADDLE_H / 2) * scale }} />
 
         {/* Ball */}
         <div className="absolute rounded-full bg-white shadow-[0_0_14px_rgba(255,255,255,0.9)]"
