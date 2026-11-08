@@ -31,7 +31,21 @@ export default function ResultOverlay({
     else setHidden(false); // reopen next time the game ends
   });
 
-  if (!open || hidden) return null;
+  if (!open) return null;
+
+  // While the board is being viewed, keep a small chip so the next round is always reachable
+  if (hidden) {
+    return (
+      <div
+        role="region"
+        aria-label="Game over"
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[150] chunk-sm bg-cream text-ink animate-pop flex items-center gap-2 p-2"
+      >
+        <ToyButton color="white" size="sm" onClick={() => setHidden(false)}>Show result</ToyButton>
+        <ToyButton color="green" size="sm" onClick={onPlayAgain}>{playAgainLabel}</ToyButton>
+      </div>
+    );
+  }
 
   return (
     <div

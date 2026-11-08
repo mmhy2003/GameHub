@@ -30,7 +30,7 @@ function RevealCards({ result, gameState, mySymbol }: { result: RoundResult; gam
     return (
       <div
         className={`chunk w-[min(28vw,8rem)] aspect-[3/4] flex flex-col items-center justify-center gap-1 animate-pop
-          ${won ? "bg-white ring-4 ring-candy-green" : lost ? "bg-gray-200 grayscale opacity-60" : "bg-white"}`}
+          ${won ? "bg-white ring-4 ring-candy-green" : lost ? "bg-cream-2 grayscale opacity-60" : "bg-white"}`}
         style={{ animationDelay: delay }}
       >
         <span className="text-[min(14vw,4rem)] leading-none">{hand?.emoji ?? "❓"}</span>

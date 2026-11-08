@@ -7,6 +7,7 @@
   --font-mono: var(--font-geist-mono);
 
   --color-ink: #2b2240;
+  --color-ink-soft: #8d86a3; /* muted ink for neutral pieces (ships, garbage rows) */
   --color-cream: #fff8ec;
   --color-cream-2: #ffefd3;
   --color-candy-blue: #4d96ff;

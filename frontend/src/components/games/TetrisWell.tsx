@@ -12,7 +12,7 @@ const BLOCK_COLORS = [
   "bg-candy-red",
   "bg-candy-orange",
   "bg-candy-pink",
-  "bg-slate-400",
+  "bg-ink-soft",
 ];
 
 const BEVEL = "shadow-[inset_3px_3px_0_rgba(255,255,255,.45),inset_-3px_-3px_0_rgba(0,0,0,.25)]";

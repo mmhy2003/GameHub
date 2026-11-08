@@ -103,7 +103,7 @@ function SeaGrid({ title, tint, ships, shots, onFire }: {
                 ${aim ? "cursor-crosshair hover:bg-white/70" : "cursor-default"}`}
             >
               {ships.has(i) && (
-                <span aria-hidden="true" className={`absolute bg-slate-400 border-2 border-ink ${capsuleShape(i, ships)}`} />
+                <span aria-hidden="true" className={`absolute bg-ink-soft border-2 border-ink ${capsuleShape(i, ships)}`} />
               )}
               {mark}
             </button>

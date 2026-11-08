@@ -15,11 +15,11 @@ const NUM_COLORS: Record<string, string> = {
   "1": "text-blue-700",
   "2": "text-green-700",
   "3": "text-red-600",
-  "4": "text-indigo-900",
+  "4": "text-ink",
   "5": "text-red-900",
   "6": "text-teal-700",
-  "7": "text-ink",
-  "8": "text-slate-500",
+  "7": "text-candy-purple",
+  "8": "text-ink/60",
 };
 
 const BEVEL = "shadow-[inset_2px_2px_0_rgba(255,255,255,0.45),inset_-2px_-2px_0_rgba(43,34,64,0.25)]";

@@ -12,6 +12,8 @@ function HomeContent() {
   // URL params — set by embedding parent via iframe src
   const paramName = searchParams.get("name") ?? "";
   const paramRoom = searchParams.get("room") ?? "";
+  // Set when an invitee was bounced here from a room link, so we can send them straight back
+  const inviteGame = GAMES.some(g => g.key === searchParams.get("game")) ? searchParams.get("game") : null;
   const chatEnabled = searchParams.get("chat") !== "false";
 
   const [username, setUsername] = useState("");
@@ -30,6 +32,10 @@ function HomeContent() {
   const navigate = (game: string) => {
     const rid = roomId.trim() || Math.random().toString(36).substring(2, 8);
     router.push(embedParams(game, rid));
+  };
+
+  const returnToInvite = () => {
+    if (paramRoom && inviteGame) router.push(embedParams(inviteGame, paramRoom));
   };
 
   const BACKEND = (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000");
@@ -57,7 +63,9 @@ function HomeContent() {
       setUsername(trimmed);
       // Fetch a token for the embedded user
       fetchToken(trimmed).then(token => {
-        if (token) sessionStorage.setItem("gamehub_token", token);
+        if (!token) return;
+        sessionStorage.setItem("gamehub_token", token);
+        returnToInvite();
       });
       setIsNameSet(true);
       return;
@@ -85,6 +93,7 @@ function HomeContent() {
     localStorage.setItem("gamehub_username", name);
     sessionStorage.setItem("gamehub_token", token);
     setIsNameSet(true);
+    returnToInvite();
   };
 
   const changeName = () => {

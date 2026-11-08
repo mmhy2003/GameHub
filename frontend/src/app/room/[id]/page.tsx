@@ -58,10 +58,13 @@ function RoomContent() {
     setRoomError(null);
     setActualGameType(null);
 
+    // Invitees without a name/token go to the lobby, which brings them straight back to this room and game
+    const lobbyUrl = `/?${new URLSearchParams({ room: roomId, game: gameType }).toString()}`;
+
     // If name is passed via URL param (embedded mode), use it directly
     const resolvedName = paramName.trim() || localStorage.getItem("gamehub_username") || "";
     if (!resolvedName) {
-      router.push(`/?room=${encodeURIComponent(roomId)}`);
+      router.push(lobbyUrl);
       return;
     }
     if (paramName.trim()) {
@@ -72,7 +75,7 @@ function RoomContent() {
     // Get JWT token — redirect to home if missing
     const token = sessionStorage.getItem("gamehub_token");
     if (!token) {
-      router.push(`/?room=${encodeURIComponent(roomId)}`);
+      router.push(lobbyUrl);
       return;
     }
 
