@@ -54,7 +54,7 @@ function loadFleet(roomId: string): number[][] | null {
 
 const countHits = (shots: Shots | undefined) => Object.values(shots ?? {}).filter(v => v === "hit").length;
 
-/** Position and rounding of a ship segment, so a whole ship reads as one capsule (joined across the gap-1). */
+/** Position and rounding of a ship segment, so a whole ship reads as one capsule (joined across the grid gap). */
 function capsuleShape(i: number, shipOf: Map<number, number>): string {
   const g = shipOf.get(i);
   const same = (j: number) => shipOf.get(j) === g;
@@ -81,7 +81,7 @@ function SeaGrid({ title, tint, ships, shots, onFire }: {
   return (
     <div className="flex flex-col items-center gap-2">
       <h3 className="font-bold text-ink text-lg">{title}</h3>
-      <div className={`chunk ${tint} p-1.5 sm:p-2 grid grid-cols-10 gap-1`}>
+      <div className={`chunk ${tint} p-1 sm:p-2 grid grid-cols-10 gap-0.5 sm:gap-1`}>
         {Array.from({ length: 100 }, (_, i) => {
           const status = shots[String(i)];
           const aim = !!onFire && !status;
@@ -189,7 +189,8 @@ export default function Battleships({ ws, gameState, mySymbol, handleRestart, ma
     ? fleetGroups
     : null;
   const myShipMap = new Map<number, number>();
-  placed.forEach(c => myShipMap.set(c, -1));
+  // Without groups every cell is its own id, so touching ships are never merged into one capsule
+  placed.forEach(c => myShipMap.set(c, -1 - c));
   groups?.forEach((g, gi) => g.forEach(c => myShipMap.set(c, gi)));
 
   const hitsOn = (sym: string) => countHits(shots[sym === "A" ? "B" : "A"]);
@@ -207,7 +208,7 @@ export default function Battleships({ ws, gameState, mySymbol, handleRestart, ma
   const myHitsTaken = countHits(shots[enemy]);
 
   return (
-    <div className="flex-1 flex flex-col items-center gap-4 p-4 relative z-10 w-full overflow-y-auto">
+    <div className="flex-1 flex flex-col items-center gap-4 p-2 sm:p-4 relative z-10 w-full overflow-y-auto">
       <PlayerCards
         gameState={gameState}
         mySymbol={mySymbol}
