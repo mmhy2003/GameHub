@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Loader2 } from "lucide-react";
+import ResultOverlay from "@/components/ui/ResultOverlay";
 import ToyButton from "@/components/ui/ToyButton";
-import { nameForSymbol } from "@/lib/players";
-import { SEATS, SEAT_INFO, seatedSeats, type Seat } from "@/lib/pongFour";
+import { hearts, nameForSymbol, outcomeFor, resultTitle } from "@/lib/players";
+import { SEATS, SEAT_INFO, matchWinsLine, ranking, seatedSeats, type Seat } from "@/lib/pongFour";
 import { play } from "@/lib/sound";
 import { useOnChange } from "@/lib/useOnChange";
 import type { GameProps } from "@/lib/types";
@@ -17,6 +18,8 @@ const COUNTDOWN_MS = 1500;
 const TELEPORT_DIST = 60;
 // Extra slack, in court units, when deciding that a bounce happened at a paddle
 const HIT_SLACK = 8;
+const KNOCKOUT_MS = 1500;
+const MEDALS = ["🥇", "🥈", "🥉"];
 
 type Point = { x: number; y: number };
 
@@ -25,7 +28,7 @@ const KEYS = {
   y: { neg: ["ArrowUp", "w", "W"], pos: ["ArrowDown", "s", "S"] },
 } as const;
 
-export default function PongFour({ ws, gameState, mySymbol }: GameProps) {
+export default function PongFour({ ws, gameState, mySymbol, handleRestart, matchScore }: GameProps) {
   const [scale, setScale] = useState(1);
 
   const phase = gameState?.phase ?? "lobby";
@@ -42,6 +45,9 @@ export default function PongFour({ ws, gameState, mySymbol }: GameProps) {
   const INSET: number = gameState?.paddle_inset ?? 20;
   const BALL_R: number = gameState?.ball_r ?? 9;
   const LIVES_MAX: number = gameState?.lives_max ?? 3;
+  const knockoutOrder: Seat[] = gameState?.knockout_order ?? [];
+  const lastOut: Seat | null = gameState?.last_out ?? null;
+  const winner: Seat | null = gameState?.winner ?? null;
 
   const isAlive = (s: Seat) => !!active[s] && (lives[s] ?? 0) > 0;
   const mySeat = SEATS.find(s => s === mySymbol) ?? null;
@@ -101,9 +107,26 @@ export default function PongFour({ ws, gameState, mySymbol }: GameProps) {
     countTimers.current.push(setTimeout(() => setCountIdx(null), COUNTDOWN_MS));
   });
 
+  // Losing a heart pops (null until the first state arrives, so joining mid-match is silent)
+  const livesLeft = SEATS.reduce((sum, s) => sum + (lives[s] ?? 0), 0);
+  useOnChange<number | null>(gameState ? livesLeft : null, (next, prev) => {
+    if (phase === "playing" && next !== null && prev !== null && next < prev) play("pop");
+  });
+
+  // "💥 Name is out!" pop-up; the result overlay takes over once there is a winner
+  const [banner, setBanner] = useState<string | null>(null);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useOnChange<number | null>(gameState ? knockoutOrder.length : null, (next, prev) => {
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    if (next === null || prev === null || next <= prev || winner || !lastOut) { setBanner(null); return; }
+    setBanner(`💥 ${nameForSymbol(gameState, lastOut) ?? SEAT_INFO[lastOut].side} is out!`);
+    bannerTimer.current = setTimeout(() => setBanner(null), KNOCKOUT_MS);
+  });
+
   useEffect(() => () => {
     countTimers.current.forEach(clearTimeout);
     if (squishTimer.current) clearTimeout(squishTimer.current);
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
   }, []);
 
   // Scale the court to fit the window, leaving room for the cards and controls
@@ -251,7 +274,7 @@ export default function PongFour({ ws, gameState, mySymbol }: GameProps) {
             trail={trail}
             squish={squish}
             countdown={countIdx !== null ? COUNTDOWN[countIdx] : null}
-            banner={null}
+            banner={winner ? null : banner}
           />
         </div>
         <div className="hidden md:block md:col-start-3 md:row-start-2 w-[180px]">{card("R")}</div>
@@ -274,6 +297,27 @@ export default function PongFour({ ws, gameState, mySymbol }: GameProps) {
             : <>{padBtn("neg", "Move up", "▲")}{padBtn("pos", "Move down", "▼")}</>}
         </div>
       </div>}
+
+      <ResultOverlay
+        open={!!winner}
+        outcome={outcomeFor(winner, false, mySymbol)}
+        title={resultTitle(gameState, winner, false, mySymbol)}
+        subtitle={matchWinsLine(gameState, matchScore)}
+        onPlayAgain={handleRestart}
+      >
+        <ol className="flex flex-col gap-1.5 text-left font-bold">
+          {ranking(winner, knockoutOrder).map((s, i) => (
+            <li key={s} className="chunk-sm bg-white rounded-xl px-3 py-1.5 flex items-center gap-2">
+              <span className="w-7 text-center shrink-0">{MEDALS[i] ?? `${i + 1}.`}</span>
+              <span className={`inline-block w-3 h-3 rounded-full border-2 border-ink shrink-0 ${SEAT_INFO[s].color}`} aria-hidden="true" />
+              <span className="truncate">{nameForSymbol(gameState, s) ?? SEAT_INFO[s].side}</span>
+              {i === 0 && winner && (
+                <span className="ml-auto shrink-0 text-sm">{hearts(LIVES_MAX - (lives[winner] ?? 0), LIVES_MAX)}</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </ResultOverlay>
     </div>
   );
 }
