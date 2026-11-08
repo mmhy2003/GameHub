@@ -1,6 +1,6 @@
-fastapi==0.111.0
+fastapi==0.162.2
 uvicorn==0.30.1
 websockets==12.0
-pydantic==2.7.4
-python-multipart==0.0.9
-python-jose[cryptography]==3.3.0
+pydantic==2.9.0
+python-multipart==0.0.33
+PyJWT==2.15.1
