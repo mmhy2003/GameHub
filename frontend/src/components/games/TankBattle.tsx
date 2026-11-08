@@ -19,8 +19,9 @@ const COUNTDOWN_MS = 1500;
 const KNOCKOUT_MS = 1500;
 const BURST_MS = 450;
 const MEDALS = ["🥇", "🥈", "🥉"];
-// Game-area width (px) from which the cards sit around the arena; Tailwind's @3xl container size (48rem)
-const WIDE = 768;
+// Game-area width (px) from which the cards sit around the arena; Tailwind's @2xl container size (42rem),
+// so a 1024px window with the 320px chat panel open (704px area) still gets it
+const WIDE = 672;
 
 const KEYS: Record<string, { axis: "drive" | "turn"; state: "fwd" | "back" | "left" | "right" }> = {
   ArrowUp: { axis: "drive", state: "fwd" }, w: { axis: "drive", state: "fwd" }, W: { axis: "drive", state: "fwd" },
@@ -132,7 +133,8 @@ export default function TankBattle({ ws, gameState, mySymbol, handleRestart, mat
   }, []);
 
   // Scale the arena to fit the game area (not the window: the chat panel takes part of it),
-  // leaving room for the cards and controls. WIDE matches the @3xl container query below.
+  // leaving room for the cards and controls. WIDE matches the @2xl container query below.
+  // Narrow: p-2, 2 rows of compact cards (48px), 2 gaps of 8px, the 56+8+56px drive buttons.
   const areaRef = useRef<HTMLDivElement>(null);
   const inLobby = phase === "lobby" || !gameState;
   useEffect(() => {
@@ -140,8 +142,8 @@ export default function TankBattle({ ws, gameState, mySymbol, handleRestart, mat
     if (!el) return;
     const update = () => {
       const wide = el.clientWidth >= WIDE;
-      const w = el.clientWidth - (wide ? 32 + 2 * 180 + 2 * 12 + 6 : 32 + 6);
-      const h = el.clientHeight - (wide ? 32 + 40 + 6 : 2 * 80 + 8 + 2 * 12 + 32 + 140 + 6);
+      const w = el.clientWidth - (wide ? 32 + 2 * 150 + 2 * 12 + 6 : 16 + 6);
+      const h = el.clientHeight - (wide ? 32 + 40 + 6 : 16 + 2 * 48 + 8 + 2 * 8 + 120 + 6);
       const next = Math.min(w / FIELD, Math.max(h, 100) / FIELD, 1);
       setScale(Math.max(next, 0.1));
     };
@@ -253,14 +255,14 @@ export default function TankBattle({ ws, gameState, mySymbol, handleRestart, mat
   const seated = seatedSeats(gameState);
   const cardState = (s: Seat): TankCardState =>
     !seated.includes(s) ? "empty" : !active[s] ? "sitting" : (lives[s] ?? 0) === 0 ? "out" : "playing";
-  const card = (s: Seat) => (
+  const card = (s: Seat, compact = false) => (
     <TankBattleCard seat={s} name={nameForSymbol(gameState, s)} lives={lives[s] ?? 0} livesMax={LIVES_MAX}
-      state={cardState(s)} isMe={s === mySymbol} />
+      state={cardState(s)} isMe={s === mySymbol} compact={compact} />
   );
   // A held button sends its state on press and "stop" on release, so driving and turning can be held together
   const holdBtn = (axis: "drive" | "turn", state: DriveState | TurnState, label: string, glyph: string) => (
     <button aria-label={label}
-      className="game-btn btn-toy touch-none w-16 h-16 rounded-2xl bg-candy-yellow text-ink text-3xl font-black flex items-center justify-center"
+      className="game-btn btn-toy touch-none w-14 h-14 rounded-2xl bg-candy-yellow text-ink text-3xl font-black flex items-center justify-center"
       onPointerDown={(e) => { e.preventDefault(); sendInput(axis, state); }}
       onPointerUp={() => sendInput(axis, "stop")}
       onPointerCancel={() => sendInput(axis, "stop")}
@@ -268,51 +270,55 @@ export default function TankBattle({ ws, gameState, mySymbol, handleRestart, mat
   );
 
   return (
-    <div ref={areaRef} className="@container flex-1 flex flex-col items-center justify-center gap-3 p-4 relative select-none overflow-hidden">
+    <div ref={areaRef} className="@container flex-1 flex flex-col relative select-none overflow-hidden">
+      {/* Inner wrapper: the @container cannot style itself by its own size. Absolute, so the
+          content never grows the container that the scale above is measured from. */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-2 @2xl:gap-3 @2xl:p-4">
 
-      {/* Narrow game area: 2×2 cards above the arena, in seat order TL TR / BL BR */}
-      <div className="@3xl:hidden grid grid-cols-2 gap-2 w-full max-w-sm">
-        {SEATS.map(s => <div key={s} className="min-w-0">{card(s)}</div>)}
+        {/* Narrow game area: 2×2 compact cards above the arena, in seat order TL TR / BL BR */}
+        <div className="@2xl:hidden grid grid-cols-2 gap-2 w-full max-w-sm">
+          {SEATS.map(s => <div key={s} className="min-w-0">{card(s, true)}</div>)}
+        </div>
+
+        {/* Wide game area: cards at the four corners of the arena; narrow: just the arena */}
+        <div className="flex justify-center @2xl:grid @2xl:grid-cols-[150px_auto_150px] @2xl:grid-rows-2 @2xl:gap-3">
+          <div className="hidden @2xl:block @2xl:col-start-1 @2xl:row-start-1 self-start">{card("TL")}</div>
+          <div className="hidden @2xl:block @2xl:col-start-1 @2xl:row-start-2 self-end">{card("BL")}</div>
+          <div className="@2xl:col-start-2 @2xl:row-start-1 @2xl:row-span-2">
+            <TankBattleArena
+              size={{ field: FIELD, tile: TILE, tankR: TANK_R, shellR: SHELL_R }}
+              scale={scale}
+              map={map}
+              tanks={tanks}
+              shells={shells}
+              bursts={bursts}
+              mySeat={mySeat}
+              countdown={countIdx !== null ? COUNTDOWN[countIdx] : null}
+              banner={winner ? null : banner}
+            />
+          </div>
+          <div className="hidden @2xl:block @2xl:col-start-3 @2xl:row-start-1 self-start">{card("TR")}</div>
+          <div className="hidden @2xl:block @2xl:col-start-3 @2xl:row-start-2 self-end">{card("BR")}</div>
+        </div>
+
+        {/* Controls hint / mobile buttons — live players only */}
+        {iCanMove && <div className="flex flex-col items-center gap-3 w-full max-w-sm z-10">
+          {/* Keyboard hint — desktop only */}
+          <div className="hidden md:flex gap-6 text-ink/60 text-xs font-bold">
+            <span>W / ↑ forward</span><span>S / ↓ reverse</span><span>A D / ← → turn</span><span>Space fire</span>
+          </div>
+
+          {/* Mobile controls — touch only */}
+          <div className="md:hidden flex items-center justify-between w-full max-w-sm gap-3">
+            <div className="flex gap-2">{holdBtn("turn", "left", "Turn left", "⟲")}{holdBtn("turn", "right", "Turn right", "⟳")}</div>
+            <div className="flex flex-col gap-2">{holdBtn("drive", "fwd", "Drive forward", "▲")}{holdBtn("drive", "back", "Reverse", "▼")}</div>
+            <button aria-label="Fire"
+              className="game-btn btn-toy touch-none w-24 h-24 rounded-full bg-candy-red text-white text-xl font-black"
+              onPointerDown={(e) => { e.preventDefault(); sendFire(); }}
+              onContextMenu={(e) => e.preventDefault()}>FIRE</button>
+          </div>
+        </div>}
       </div>
-
-      {/* Wide game area: cards at the four corners of the arena; narrow: just the arena */}
-      <div className="flex justify-center @3xl:grid @3xl:grid-cols-[180px_auto_180px] @3xl:grid-rows-2 @3xl:gap-3">
-        <div className="hidden @3xl:block @3xl:col-start-1 @3xl:row-start-1 self-start">{card("TL")}</div>
-        <div className="hidden @3xl:block @3xl:col-start-1 @3xl:row-start-2 self-end">{card("BL")}</div>
-        <div className="@3xl:col-start-2 @3xl:row-start-1 @3xl:row-span-2">
-          <TankBattleArena
-            size={{ field: FIELD, tile: TILE, tankR: TANK_R, shellR: SHELL_R }}
-            scale={scale}
-            map={map}
-            tanks={tanks}
-            shells={shells}
-            bursts={bursts}
-            mySeat={mySeat}
-            countdown={countIdx !== null ? COUNTDOWN[countIdx] : null}
-            banner={winner ? null : banner}
-          />
-        </div>
-        <div className="hidden @3xl:block @3xl:col-start-3 @3xl:row-start-1 self-start">{card("TR")}</div>
-        <div className="hidden @3xl:block @3xl:col-start-3 @3xl:row-start-2 self-end">{card("BR")}</div>
-      </div>
-
-      {/* Controls hint / mobile buttons — live players only */}
-      {iCanMove && <div className="flex flex-col items-center gap-3 w-full max-w-sm z-10">
-        {/* Keyboard hint — desktop only */}
-        <div className="hidden md:flex gap-6 text-ink/60 text-xs font-bold">
-          <span>W / ↑ forward</span><span>S / ↓ reverse</span><span>A D / ← → turn</span><span>Space fire</span>
-        </div>
-
-        {/* Mobile controls — touch only */}
-        <div className="md:hidden flex items-center justify-between w-full max-w-sm gap-3">
-          <div className="flex gap-2">{holdBtn("turn", "left", "Turn left", "⟲")}{holdBtn("turn", "right", "Turn right", "⟳")}</div>
-          <div className="flex flex-col gap-2">{holdBtn("drive", "fwd", "Drive forward", "▲")}{holdBtn("drive", "back", "Reverse", "▼")}</div>
-          <button aria-label="Fire"
-            className="game-btn btn-toy touch-none w-24 h-24 rounded-full bg-candy-red text-white text-xl font-black"
-            onPointerDown={(e) => { e.preventDefault(); sendFire(); }}
-            onContextMenu={(e) => e.preventDefault()}>FIRE</button>
-        </div>
-      </div>}
 
       <ResultOverlay
         open={!!winner}
