@@ -38,6 +38,11 @@ export const GAMES: GameInfo[] = [
     description: "Real-time paddle battle. Deflect the ball and outscore your opponent to 7 points.",
   },
   {
+    key: "pong-4", title: "4-Player Pong", cover: "/games/pong_cover.png", emoji: "🏓",
+    category: "Action", playTime: "5 min", accent: "green",
+    description: "Up to 4 friends defend the sides of a square court. Miss and lose a heart, and the last player standing wins!",
+  },
+  {
     key: "connect-four", title: "Connect Four", cover: "/games/connect_four_cover.png", emoji: "🔴",
     category: "Classic", playTime: "5 min", accent: "blue",
     description: "Drop discs and connect four in a row — horizontally, vertically, or diagonally.",
