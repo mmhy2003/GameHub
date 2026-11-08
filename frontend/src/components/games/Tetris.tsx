@@ -1,11 +1,20 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2 } from "lucide-react";
+import PlayerCards from "@/components/ui/PlayerCards";
+import ResultOverlay from "@/components/ui/ResultOverlay";
+import ToyButton from "@/components/ui/ToyButton";
+import Avatar from "@/components/ui/Avatar";
+import TetrisWell, { type TetrisPiece } from "./TetrisWell";
+import { nameForSymbol, outcomeFor, resultTitle, scoreLine } from "@/lib/players";
+import { play } from "@/lib/sound";
+import { useOnChange } from "@/lib/useOnChange";
 import type { GameProps } from "@/lib/types";
 
 const ROWS = 20;
 const COLS = 10;
 const TICK_RATE = 500;
+const GARBAGE_CAP = 10;
 
 const SHAPES = [
   [],
@@ -18,28 +27,21 @@ const SHAPES = [
   [[7, 7, 0], [0, 7, 7]]
 ];
 
-const COLORS = [
-  "bg-slate-900 border-slate-900",
-  "bg-cyan-400 border-cyan-300",
-  "bg-blue-500 border-blue-400",
-  "bg-orange-500 border-orange-400",
-  "bg-yellow-400 border-yellow-300",
-  "bg-green-500 border-green-400",
-  "bg-purple-500 border-purple-400",
-  "bg-rose-500 border-rose-400",
-  "bg-slate-600 border-slate-500"
-];
+const randomType = () => Math.floor(Math.random() * 7) + 1;
 
 type Matrix = number[][];
 const createEmptyBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 
-export default function Tetris({ ws, gameState, mySymbol, handleRestart }: GameProps) {
+export default function Tetris({ ws, gameState, mySymbol, handleRestart, matchScore }: GameProps) {
   const [board, setBoard] = useState<Matrix>(createEmptyBoard());
-  const [piece, setPiece] = useState<{ shape: Matrix; x: number; y: number; color: number } | null>(null);
+  const [piece, setPiece] = useState<TetrisPiece | null>(null);
+  const [nextType, setNextType] = useState(0);
   const [gameOverLocal, setGameOverLocal] = useState(false);
 
   const boardRef = useRef(board);
   const pieceRef = useRef(piece);
+  // Pre-generated next piece (0 = not drawn yet); same uniform draw as before
+  const nextPieceRef = useRef(0);
   const isPlayingLocal = useRef(false);
 
   // Derived values — safe to access before gameState is ready via optional chaining
@@ -48,14 +50,20 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart }: GameP
   const winner = gameState?.winner ?? null;
   const phase = gameState?.phase ?? "lobby";
   const ready = gameState?.ready ?? {};
-  const enemySymbol = mySymbol === "P1" ? "P2" : "P1";
+  const isDraw = gameState?.is_draw ?? false;
+  const me = mySymbol ?? "P1";
+  const enemySymbol = me === "P1" ? "P2" : "P1";
   const isPlaying = phase === "playing";
+  const myScore: number = scores[me] ?? 0;
+  const myGarbage: number = garbage_queue[me] ?? 0;
 
+  useOnChange(myScore, (n, p) => { if (n > p) play("pop"); });
+  useOnChange(myGarbage, (n, p) => { if (n > p) play("hit"); });
 
   useEffect(() => { boardRef.current = board; }, [board]);
   useEffect(() => { pieceRef.current = piece; }, [piece]);
 
-  const checkCollision = useCallback((p: any, b: Matrix) => {
+  const checkCollision = useCallback((p: TetrisPiece, b: Matrix) => {
     for (let r = 0; r < p.shape.length; r++) {
       for (let c = 0; c < p.shape[r].length; c++) {
         if (p.shape[r][c] !== 0) {
@@ -71,7 +79,9 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart }: GameP
   }, []);
 
   const spawnPiece = useCallback(() => {
-    const typeId = Math.floor(Math.random() * 7) + 1;
+    const typeId = nextPieceRef.current || randomType();
+    nextPieceRef.current = randomType();
+    setNextType(nextPieceRef.current);
     const newPiece = { shape: SHAPES[typeId], x: Math.floor(COLS / 2) - 1, y: 0, color: typeId };
     if (checkCollision(newPiece, boardRef.current)) {
       setGameOverLocal(true);
@@ -99,6 +109,7 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart }: GameP
       return !isFull;
     });
     while (finalBoard.length < ROWS) finalBoard.unshift(Array(COLS).fill(0));
+    play("place");
     if (linesCleared > 0) ws.send(JSON.stringify({ action: "move", action_type: "lines_cleared", count: linesCleared }));
     setBoard(finalBoard);
     spawnPiece();
@@ -147,7 +158,7 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart }: GameP
       else if (e.key === "ArrowUp") {
         p.shape = p.shape[0].map((_, idx) => p.shape.map(row => row[idx]).reverse());
       } else if (e.key === " ") {
-        let hardDropP = { ...pieceRef.current };
+        const hardDropP = { ...pieceRef.current };
         while (!checkCollision({ ...hardDropP, y: hardDropP.y + 1 }, boardRef.current)) hardDropP.y += 1;
         setPiece(hardDropP);
         setTimeout(() => mergePiece(), 0);
@@ -172,129 +183,151 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart }: GameP
 
   // All hooks done — safe to do early loading return now
   if (!gameState) {
-    return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>;
+    return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-candy-purple" size={48} /></div>;
   }
 
+  const nameOf = (sym: string) => nameForSymbol(gameState, sym) ?? `Player ${sym.slice(1)}`;
+  const linesOf = (sym: string) => Math.floor((scores[sym] ?? 0) / 100);
+  const readySticker = (sym: string) => ready[sym] ? "✅ Ready" : "⏳ Not ready";
+  const isLobby = phase === "lobby";
+  const cards = (
+    <PlayerCards
+      gameState={gameState}
+      mySymbol={mySymbol}
+      players={[
+        { symbol: "P1", subtitle: isLobby ? readySticker("P1") : `${linesOf("P1")} lines` },
+        { symbol: "P2", subtitle: isLobby ? readySticker("P2") : `${linesOf("P2")} lines` },
+      ]}
+      matchScore={matchScore}
+    />
+  );
+
   // Lobby screen — waiting for both players to ready up
-  if (phase === "lobby") {
+  if (isLobby) {
     const handleReady = () => {
       ws.send(JSON.stringify({ action: "move", action_type: "set_ready" }));
     };
+    const iAmReady = !!mySymbol && !!ready[mySymbol];
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-6">
-        <div className="bg-slate-900/80 border border-slate-700 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl backdrop-blur-md max-w-sm w-full">
-          <h2 className="text-2xl font-bold text-slate-100">Waiting Room</h2>
-          <p className="text-slate-400 text-sm text-center">Both players must be ready before Tetris begins.</p>
-          <div className="w-full flex flex-col gap-2 my-2">
-            <div className={`flex items-center justify-between px-4 py-2 rounded-lg border ${ready["P1"] ? "border-green-500/40 bg-green-500/10 text-green-400" : "border-slate-700 bg-slate-800/50 text-slate-400"}`}>
-              <span className="font-mono text-sm">Player 1 (P1)</span>
-              <span className="text-xs">{ready["P1"] ? "✓ Ready" : "Waiting..."}</span>
-            </div>
-            <div className={`flex items-center justify-between px-4 py-2 rounded-lg border ${ready["P2"] ? "border-green-500/40 bg-green-500/10 text-green-400" : "border-slate-700 bg-slate-800/50 text-slate-400"}`}>
-              <span className="font-mono text-sm">Player 2 (P2)</span>
-              <span className="text-xs">{ready["P2"] ? "✓ Ready" : "Waiting..."}</span>
-            </div>
+      <div className="flex-1 flex flex-col items-center gap-6 p-2 sm:p-4 w-full overflow-y-auto">
+        {cards}
+        <div className="chunk bg-white p-6 sm:p-8 flex flex-col items-center gap-4 max-w-sm w-full text-ink animate-pop">
+          <div className="text-6xl" aria-hidden="true">{iAmReady ? "✅" : "🟦"}</div>
+          <h2 className="text-2xl font-black">Block party!</h2>
+          <p className="text-ink/70 text-sm font-bold text-center">Both players must be ready before Tetris begins.</p>
+          <div className="w-full grid grid-cols-2 gap-2">
+            {["P1", "P2"].map(sym => (
+              <div key={sym} className={`chunk-sm rounded-xl px-2 py-2 text-center text-sm font-bold truncate ${ready[sym] ? "bg-candy-green" : "bg-cream-2"}`}>
+                <div className="text-2xl" aria-hidden="true">{ready[sym] ? "✅" : "⏳"}</div>
+                {nameOf(sym)}
+              </div>
+            ))}
           </div>
-          {mySymbol && !ready[mySymbol] ? (
-            <button onClick={handleReady} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-semibold transition-all shadow-lg shadow-indigo-500/20">
-              Ready!
-            </button>
+          {mySymbol && !iAmReady ? (
+            <ToyButton color="green" size="lg" className="w-full" onClick={handleReady}>Ready?</ToyButton>
           ) : (
-            <div className="text-indigo-400 flex items-center gap-2 animate-pulse text-sm"><Loader2 className="animate-spin" size={16} /> Waiting for opponent...</div>
+            <div className="text-ink/70 font-bold flex items-center gap-2 text-sm"><Loader2 className="animate-spin" size={16} /> Waiting for opponent…</div>
           )}
         </div>
       </div>
     );
   }
 
-  const renderBoard = board.map(row => [...row]);
-  if (piece) {
-    for (let r = 0; r < piece.shape.length; r++) {
-      for (let c = 0; c < piece.shape[r].length; c++) {
-        if (piece.shape[r][c] !== 0 && piece.y + r >= 0 && piece.y + r < ROWS && piece.x + c >= 0 && piece.x + c < COLS) {
-          renderBoard[piece.y + r][piece.x + c] = piece.color;
-        }
-      }
-    }
-  }
+  const blocked = () => !pieceRef.current || gameOverLocal || !!winner;
+  const tryMove = (p: TetrisPiece) => { if (!checkCollision(p, boardRef.current)) setPiece(p); };
+  const touch = {
+    left: () => { if (blocked()) return; tryMove({ ...pieceRef.current!, x: pieceRef.current!.x - 1 }); },
+    right: () => { if (blocked()) return; tryMove({ ...pieceRef.current!, x: pieceRef.current!.x + 1 }); },
+    rotate: () => {
+      if (blocked()) return;
+      const p = { ...pieceRef.current! };
+      p.shape = p.shape[0].map((_, idx) => p.shape.map(row => row[idx]).reverse());
+      tryMove(p);
+    },
+    down: () => dropDown(),
+    hardDrop: () => {
+      if (blocked()) return;
+      const hp = { ...pieceRef.current! };
+      while (!checkCollision({ ...hp, y: hp.y + 1 }, boardRef.current)) hp.y += 1;
+      setPiece(hp);
+      setTimeout(() => mergePiece(), 0);
+    },
+  };
+  const controls = [
+    ["◀", "Move left", "left"],
+    ["⟳", "Rotate", "rotate"],
+    ["▶", "Move right", "right"],
+    ["▼", "Soft drop", "down"],
+    ["⤓", "Hard drop", "hardDrop"],
+  ] as const;
+
+  const lines = linesOf(me);
+  const level = Math.floor(lines / 10) + 1;
+  const garbageShown = Math.min(myGarbage, GARBAGE_CAP);
+  const enemyGarbage = Math.min(garbage_queue[enemySymbol] ?? 0, GARBAGE_CAP);
+  const sticker = "chunk-sm bg-white rounded-xl px-2 py-1 text-ink text-center";
+  const label = "text-[0.65rem] sm:text-xs font-bold uppercase tracking-wide text-ink/60";
+
+  const resetLocal = () => { setGameOverLocal(false); isPlayingLocal.current = false; setBoard(createEmptyBoard()); setPiece(null); };
 
   return (
-    <div className="flex-1 flex flex-col lg:flex-row items-center justify-center p-6 gap-12 relative z-10 w-full overflow-y-auto outline-none" tabIndex={0}>
+    <div className="flex-1 flex flex-col items-center p-2 sm:p-4 gap-3 sm:gap-4 relative z-10 w-full overflow-y-auto overflow-x-hidden outline-none" tabIndex={0}>
+      {cards}
 
-      {winner && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50">
-          <div className="bg-slate-900/95 backdrop-blur-lg border border-slate-700 px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center w-64 pointer-events-auto">
-            <h2 className="text-2xl font-black mb-1 bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent text-center">
-              {winner === mySymbol ? `Victory!` : `Defeat! Player ${winner} Won.`}
-            </h2>
-            <button
-              onClick={() => { setGameOverLocal(false); isPlayingLocal.current = false; setBoard(createEmptyBoard()); setPiece(null); handleRestart(); }}
-              className="mt-4 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm text-white font-medium transition-all shadow-lg"
-            >
-              Play Again
-            </button>
+      <div className="flex items-stretch justify-center gap-1.5 sm:gap-4 [--cell:min(7vw,1.35rem)] md:[--cell:min(4.2vh,1.6rem)]">
+        {/* Garbage meter: rows waiting to land on my well */}
+        <div className="chunk-sm w-2.5 sm:w-4 rounded-full! bg-white overflow-hidden flex flex-col justify-end" title={`${myGarbage} garbage rows incoming`}>
+          <div className="bg-candy-red transition-all duration-300" style={{ height: `${(garbageShown / ROWS) * 100}%` }} />
+        </div>
+
+        <TetrisWell board={board} piece={piece} cellSize="var(--cell)" dim={gameOverLocal} />
+
+        <div className="flex flex-col gap-2 w-20 sm:w-28">
+          <div className={sticker}>
+            <div className={label}>Next</div>
+            <div className="flex justify-center py-1 min-h-10">
+              {nextType > 0 && <TetrisWell board={SHAPES[nextType]} cellSize="min(3.4vw,0.9rem)" />}
+            </div>
+          </div>
+          <div className={sticker}><div className={label}>Lines</div><div className="text-lg sm:text-2xl font-black tabular-nums">{lines}</div></div>
+          <div className={sticker}><div className={label}>Level</div><div className="text-lg sm:text-2xl font-black tabular-nums">{level}</div></div>
+          <div className={sticker}><div className={label}>Score</div><div className="text-lg sm:text-2xl font-black tabular-nums">{myScore}</div></div>
+
+          {/* Opponent: the backend does not share their board, so show their stats */}
+          <div className="chunk-sm bg-cream-2 rounded-xl p-2 text-ink opacity-80 flex flex-col items-center gap-1 mt-auto">
+            <Avatar name={nameForSymbol(gameState, enemySymbol) ?? ""} size={28} />
+            <div className="text-xs font-bold truncate max-w-full">{nameOf(enemySymbol)}</div>
+            <div className="text-xs font-bold tabular-nums">{linesOf(enemySymbol)} lines · {scores[enemySymbol] ?? 0}</div>
+            <div className="w-full h-2 rounded-full bg-white ring-1 ring-ink/40 overflow-hidden" title={`${enemyGarbage} garbage rows incoming`}>
+              <div className="h-full bg-candy-red transition-all duration-300" style={{ width: `${(enemyGarbage / GARBAGE_CAP) * 100}%` }} />
+            </div>
           </div>
         </div>
-      )}
-
-      <div className={`flex flex-col items-center p-4 bg-slate-900/80 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur-md transition-all ${gameOverLocal ? "grayscale opacity-50 blur-[2px]" : ""}`}>
-        <div className="flex justify-between w-full mb-3 text-slate-200 font-bold px-4">
-          <span className="text-indigo-400 flex flex-col items-center text-xs uppercase tracking-widest">
-            <span className="text-xl mb-1">{scores[mySymbol ?? "P1"] ?? 0}</span> Your Score
-          </span>
-          <span className="text-rose-400 flex flex-col items-center text-xs uppercase tracking-widest">
-            <span className="text-xl mb-1">{scores[enemySymbol] ?? 0}</span> Enemy Score
-          </span>
-        </div>
-        <div
-          className="grid bg-slate-950 p-2 rounded-lg border-2 border-slate-800 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"
-          style={{ gridTemplateRows: `repeat(${ROWS}, minmax(0, 1fr))`, gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))` }}
-        >
-          {renderBoard.map((row, r) =>
-            row.map((cell, c) => (
-              <div key={`${r}-${c}`} className={`w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 border m-[1px] rounded-[3px] transition-colors ${cell !== 0 ? "shadow-inner" : "border-slate-900/40 border-r-transparent border-b-transparent"} ${COLORS[cell]}`} />
-            ))
-          )}
-        </div>
-        <div className="w-full hidden md:flex justify-center gap-6 mt-4 opacity-50 text-slate-400 text-xs text-center border-t border-slate-800 pt-3 font-mono">
-          <p>[←] [→] Move</p>
-          <p>[↑] Rotate</p>
-          <p>[↓] Drop</p>
-          <p>[SPC] Hard Drop</p>
-        </div>
       </div>
 
-      {/* Mobile Touch Controls — visible only on small screens */}
-      <div className="md:hidden flex flex-col items-center gap-3 mt-4 w-full max-w-xs">
-        {/* Rotate button at top center */}
-        <button
-          onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; const p = { ...pieceRef.current }; p.shape = p.shape[0].map((_, idx) => p.shape.map(row => row[idx]).reverse()); if (!checkCollision(p, boardRef.current)) setPiece(p); }}
-          className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
-        >↑</button>
-
-        {/* Middle row: Left | Drop | Right */}
-        <div className="flex gap-4 items-center">
-          <button
-            onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; const p = { ...pieceRef.current, x: pieceRef.current.x - 1 }; if (!checkCollision(p, boardRef.current)) setPiece(p); }}
-            className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
-          >←</button>
-          <button
-            onPointerDown={(e) => { e.preventDefault(); dropDown(); }}
-            className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
-          >↓</button>
-          <button
-            onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; const p = { ...pieceRef.current, x: pieceRef.current.x + 1 }; if (!checkCollision(p, boardRef.current)) setPiece(p); }}
-            className="game-btn w-16 h-16 bg-slate-800 hover:bg-slate-700 active:bg-indigo-700 border border-slate-600 rounded-2xl text-2xl flex items-center justify-center shadow-lg transition-colors"
-          >→</button>
-        </div>
-
-        {/* Hard drop */}
-        <button
-          onPointerDown={(e) => { e.preventDefault(); if (!pieceRef.current || gameOverLocal || winner) return; let hp = { ...pieceRef.current }; while (!checkCollision({ ...hp, y: hp.y + 1 }, boardRef.current)) hp.y += 1; setPiece(hp); setTimeout(() => mergePiece(), 0); }}
-          className="game-btn w-full py-3 bg-indigo-700 hover:bg-indigo-600 active:bg-indigo-500 border border-indigo-500/50 rounded-2xl text-white font-bold text-sm shadow-lg transition-colors"
-        >⚡ Hard Drop</button>
+      <div className="hidden md:flex justify-center gap-4 text-ink/60 text-xs font-bold">
+        <span>←/→ Move</span><span>↑ Rotate</span><span>↓ Drop</span><span>Space Hard drop</span>
       </div>
 
+      {/* Touch controls — visible only on small screens */}
+      <div className="md:hidden flex flex-wrap justify-center gap-2 w-full">
+        {controls.map(([icon, name, id]) => (
+          <button
+            key={name}
+            aria-label={name}
+            onPointerDown={(e) => { e.preventDefault(); touch[id](); }}
+            className="game-btn btn-toy w-16 h-16 rounded-2xl bg-candy-yellow text-ink text-2xl font-black flex items-center justify-center select-none"
+          >{icon}</button>
+        ))}
+      </div>
+
+      <ResultOverlay
+        open={!!winner || isDraw}
+        outcome={outcomeFor(winner, isDraw, mySymbol)}
+        title={resultTitle(gameState, winner, isDraw, mySymbol)}
+        subtitle={scoreLine(matchScore, "P1", "P2")}
+        onPlayAgain={() => { resetLocal(); handleRestart(); }}
+      />
     </div>
   );
 }
