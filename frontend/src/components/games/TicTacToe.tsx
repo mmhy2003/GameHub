@@ -1,67 +1,108 @@
+"use client";
 import { Loader2 } from "lucide-react";
+import PlayerCards from "@/components/ui/PlayerCards";
+import TurnBanner from "@/components/ui/TurnBanner";
+import ResultOverlay from "@/components/ui/ResultOverlay";
+import { nameForSymbol, outcomeFor, resultTitle, scoreLine } from "@/lib/players";
+import { play } from "@/lib/sound";
+import { useOnChange } from "@/lib/useOnChange";
+import type { GameProps } from "@/lib/types";
 
-interface TicTacToeProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
+const LINES = [
+  [0, 1, 2], [3, 4, 5], [6, 7, 8],
+  [0, 3, 6], [1, 4, 7], [2, 5, 8],
+  [0, 4, 8], [2, 4, 6],
+];
+
+const MARK_COLORS: Record<string, string> = {
+  X: "text-candy-blue",
+  O: "text-candy-pink",
+};
+
+// Heavy ink outline + offset shadow so marks look like stickers
+const MARK_STYLE = "[-webkit-text-stroke:3px_var(--color-ink)] [paint-order:stroke_fill] [text-shadow:3px_3px_0_var(--color-ink)]";
+
+function winningLine(board: (string | null)[], winner: string | null): number[] {
+  if (!winner) return [];
+  return LINES.find(line => line.every(i => board[i] === winner)) ?? [];
 }
 
-export default function TicTacToe({ ws, gameState, mySymbol, handleRestart }: TicTacToeProps) {
+export default function TicTacToe({ ws, gameState, mySymbol, handleRestart, matchScore }: GameProps) {
+  const board: (string | null)[] = gameState?.board ?? [];
+  const currentTurn: string | null = gameState?.current_turn ?? null;
+  const winner: string | null = gameState?.winner ?? null;
+  const isDraw: boolean = !!gameState?.is_draw;
+  const over = !!winner || isDraw;
+  const isMyTurn = !!mySymbol && currentTurn === mySymbol && !over;
+  const filled = board.filter(Boolean).length;
+
+  useOnChange(isMyTurn, now => { if (now) play("turn"); });
+  useOnChange(filled, (n, p) => { if (n > p) play("place"); });
+
   if (!gameState) {
-     return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>;
+     return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-candy-purple" size={48} /></div>;
   }
 
-  const { board, current_turn: currentTurn, winner, is_draw: isDraw } = gameState;
+  const winLine = winningLine(board, winner);
+  const turnName = nameForSymbol(gameState, currentTurn) ?? `Player ${currentTurn}`;
+  const outcome = outcomeFor(winner, isDraw, mySymbol);
+  const title = resultTitle(gameState, winner, isDraw, mySymbol);
 
   const handleCellClick = (index: number) => {
-    if (winner || isDraw || board[index] !== null || currentTurn !== mySymbol) return;
+    if (!isMyTurn || board[index] !== null) return;
     ws.send(JSON.stringify({ action: "move", index }));
   };
 
   return (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10 w-full h-full">
-          <div className="mb-8 flex flex-col items-center">
-             {(winner || isDraw) ? (
-               <div className="animate-bounce-short inset-0 absolute pt-10 pointer-events-none flex justify-center items-start z-50">
-                 <div className="bg-slate-900/95 backdrop-blur-lg border border-slate-700 px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center w-56 pointer-events-auto">
-                   <h2 className="text-xl font-black mb-1 bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent text-center">
-                     {winner ? `Player ${winner} Wins!` : "It's a Draw!"}
-                   </h2>
-                   <button 
-                     onClick={handleRestart}
-                     className="mt-3 px-5 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm text-white font-medium transition-all shadow-lg shadow-indigo-500/20"
-                   >
-                     Play Again
-                   </button>
-                 </div>
-               </div>
-             ) : (
-               <div className="text-lg font-medium text-slate-300 bg-slate-900/50 px-6 py-3 rounded-full border border-slate-800 shadow-inner">
-                  {currentTurn === mySymbol 
-                    ? <span className="text-indigo-400 animate-pulse">It's your turn!</span> 
-                    : <span>Waiting for <strong className="text-white">Player {currentTurn}</strong>...</span>}
-               </div>
-             )}
-          </div>
+    <div className="flex-1 flex flex-col items-center justify-center gap-5 p-4 relative z-10 w-full h-full">
+      <PlayerCards
+        gameState={gameState}
+        mySymbol={mySymbol}
+        players={[{ symbol: "X", subtitle: "Plays X" }, { symbol: "O", subtitle: "Plays O" }]}
+        activeSymbol={over ? null : currentTurn}
+        matchScore={matchScore}
+      />
 
-          <div className="grid grid-cols-3 gap-3 p-4 bg-slate-900/80 rounded-2xl shadow-xl border border-slate-700 backdrop-blur-sm relative">
-            {board.map((cell: string | null, idx: number) => (
-              <button
-                key={idx}
-                onClick={() => handleCellClick(idx)}
-                disabled={!!winner || !!isDraw || cell !== null || currentTurn !== mySymbol}
-                className={`w-24 h-24 sm:w-32 sm:h-32 rounded-xl text-5xl sm:text-7xl font-black flex items-center justify-center transition-all duration-300
-                  ${!cell && !winner && currentTurn === mySymbol ? "hover:bg-slate-800 cursor-pointer shadow-indigo-500/20" : "cursor-default bg-slate-800/50"} 
-                  ${cell === "X" ? "text-blue-400 shadow-[inset_0_0_20px_rgba(96,165,250,0.1)]" : ""} 
-                  ${cell === "O" ? "text-rose-400 shadow-[inset_0_0_20px_rgba(251,113,133,0.1)]" : ""}
-                  bg-slate-950 border border-slate-800 shadow-inner
-                `}
-              >
-                <span className={cell ? "animate-scale-in" : ""}>{cell}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+      {over ? (
+        <TurnBanner tone={outcome === "lose" ? "bad" : "good"}>{title}</TurnBanner>
+      ) : isMyTurn ? (
+        <TurnBanner tone="mine">🎉 Your turn!</TurnBanner>
+      ) : mySymbol ? (
+        <TurnBanner tone="wait">Waiting for {turnName}…</TurnBanner>
+      ) : (
+        <TurnBanner tone="info">{turnName}&apos;s turn</TurnBanner>
+      )}
+
+      <div className="grid grid-cols-3 gap-3 p-3 bg-candy-purple chunk">
+        {board.map((cell, idx) => {
+          const canPlay = isMyTurn && cell === null;
+          return (
+            <button
+              key={idx}
+              onClick={() => handleCellClick(idx)}
+              disabled={!canPlay}
+              aria-label={cell ? `Square ${idx + 1}: ${cell}` : `Square ${idx + 1}: empty`}
+              className={`group w-[min(24vw,7.5rem)] aspect-square rounded-2xl border-[3px] border-ink flex items-center justify-center font-black text-[min(17vw,5rem)] leading-none transition-colors
+                ${winLine.includes(idx) ? "bg-candy-yellow" : "bg-white"}
+                ${canPlay ? "cursor-pointer hover:bg-cream-2" : "cursor-default"}`}
+            >
+              {cell ? (
+                <span className={`animate-pop ${MARK_COLORS[cell] ?? ""} ${MARK_STYLE}`}>{cell}</span>
+              ) : canPlay && mySymbol ? (
+                <span aria-hidden="true" className={`opacity-0 group-hover:opacity-25 ${MARK_COLORS[mySymbol] ?? ""} ${MARK_STYLE}`}>{mySymbol}</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      <ResultOverlay
+        open={over}
+        outcome={outcome}
+        title={title}
+        subtitle={scoreLine(matchScore, "X", "O")}
+        onPlayAgain={handleRestart}
+      />
+    </div>
   );
 }

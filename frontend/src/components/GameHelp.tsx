@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { HelpCircle, X, Target, BookOpen, Lightbulb } from "lucide-react";
+import { X, Target, BookOpen, Lightbulb } from "lucide-react";
 import { GAME_RULES } from "@/data/gameRules";
+import ToyButton from "@/components/ui/ToyButton";
 
 interface GameHelpProps {
   gameType: string;
@@ -20,28 +21,32 @@ export default function GameHelp({ gameType }: GameHelpProps) {
 
   const modal = mounted && open ? createPortal(
     <div
-      className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[200] overflow-y-auto"
+      className="fixed inset-0 bg-ink/40 z-[200] overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && setOpen(false)}
     >
       <div className="flex min-h-full items-center justify-center p-4">
         <div
-          className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-md flex flex-col"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="game-help-title"
+          className="chunk bg-cream text-ink w-full max-w-md flex flex-col overflow-hidden animate-pop"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-slate-800">
+          <div className="flex items-center justify-between px-5 py-4 bg-candy-purple text-white border-b-[3px] border-ink">
             <div className="flex items-center gap-3">
               <span className="text-3xl">{rules.icon}</span>
               <div>
-                <h2 className="text-lg font-black text-white">{rules.title}</h2>
-                <p className="text-xs text-slate-500">How to play</p>
+                <h2 id="game-help-title" className="text-lg font-bold">{rules.title}</h2>
+                <p className="text-xs text-white/80">How to play</p>
               </div>
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="text-slate-500 hover:text-white hover:bg-slate-800 rounded-full p-1.5 transition-all"
+              aria-label="Close"
+              className="btn-toy bg-white text-ink w-8 h-8 rounded-lg flex items-center justify-center"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
 
@@ -50,38 +55,40 @@ export default function GameHelp({ gameType }: GameHelpProps) {
             {/* Objective */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Target size={14} className="text-amber-400" />
-                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest">Objective</h3>
+                <Target size={16} className="text-candy-orange" />
+                <h3 className="text-sm font-bold uppercase tracking-wider">Objective</h3>
               </div>
-              <p className="text-sm text-slate-300 leading-relaxed">{rules.objective}</p>
+              <p className="text-sm text-ink/80 leading-relaxed">{rules.objective}</p>
             </div>
 
             {/* Rules */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <BookOpen size={14} className="text-indigo-400" />
-                <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Rules</h3>
+                <BookOpen size={16} className="text-candy-purple" />
+                <h3 className="text-sm font-bold uppercase tracking-wider">Rules</h3>
               </div>
-              <ul className="space-y-2">
+              <ol className="space-y-2">
                 {rules.rules.map((rule, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300 leading-relaxed">
-                    <span className="text-slate-600 font-mono text-xs mt-0.5 shrink-0">{i + 1}.</span>
-                    {rule}
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-ink/80 leading-relaxed">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-candy-yellow border-2 border-ink text-ink text-xs font-bold flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                    <span className="pt-0.5">{rule}</span>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
 
             {/* Tips */}
             {rules.tips && rules.tips.length > 0 && (
-              <div>
+              <div className="bg-candy-green/20 border-2 border-ink rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-2">
-                  <Lightbulb size={14} className="text-green-400" />
-                  <h3 className="text-xs font-bold text-green-400 uppercase tracking-widest">Tips</h3>
+                  <Lightbulb size={16} className="text-ink" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider">Tips</h3>
                 </div>
-                <ul className="space-y-1.5">
+                <ul className="space-y-1.5 list-disc pl-5">
                   {rules.tips.map((tip, i) => (
-                    <li key={i} className="text-sm text-slate-400 leading-relaxed pl-2 border-l-2 border-green-800">
+                    <li key={i} className="text-sm text-ink/80 leading-relaxed">
                       {tip}
                     </li>
                   ))}
@@ -91,13 +98,10 @@ export default function GameHelp({ gameType }: GameHelpProps) {
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-800">
-            <button
-              onClick={() => setOpen(false)}
-              className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all"
-            >
+          <div className="p-4 border-t-[3px] border-ink">
+            <ToyButton color="green" className="w-full" onClick={() => setOpen(false)}>
               Got it!
-            </button>
+            </ToyButton>
           </div>
         </div>
       </div>
@@ -109,12 +113,13 @@ export default function GameHelp({ gameType }: GameHelpProps) {
     <>
       {/* Trigger button */}
       <button
+        type="button"
         onClick={() => setOpen(true)}
+        aria-label="How to play"
         title="How to play"
-        className="flex items-center gap-1.5 text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 rounded-xl px-2.5 py-1.5 text-xs transition-all shadow-lg backdrop-blur-sm"
+        className="btn-toy bg-white text-ink w-9 h-9 rounded-xl flex items-center justify-center text-lg font-bold leading-none"
       >
-        <HelpCircle size={14} />
-        <span>How to play</span>
+        ?
       </button>
 
       {modal}
