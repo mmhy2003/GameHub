@@ -6,12 +6,18 @@ import ToyButton from "@/components/ui/ToyButton";
 import { hearts, nameForSymbol, outcomeFor, resultTitle } from "@/lib/players";
 import {
   SEATS, SEAT_INFO, matchWinsLine, ranking, seatedSeats,
-  type DriveState, type Seat, type ShellView, type TankView, type TurnState,
+  type Burst, type DriveState, type Seat, type ShellView, type TankView, type TurnState,
 } from "@/lib/tankBattle";
+import { play } from "@/lib/sound";
+import { useOnChange } from "@/lib/useOnChange";
 import type { GameProps } from "@/lib/types";
 import TankBattleArena from "./TankBattleArena";
 import TankBattleCard, { type TankCardState } from "./TankBattleCard";
 
+const COUNTDOWN = ["3", "2", "1", "Go!"];
+const COUNTDOWN_MS = 1500;
+const KNOCKOUT_MS = 1500;
+const BURST_MS = 450;
 const MEDALS = ["🥇", "🥈", "🥉"];
 // Game-area width (px) from which the cards sit around the arena; Tailwind's @3xl container size (48rem)
 const WIDE = 768;
@@ -39,10 +45,91 @@ export default function TankBattle({ ws, gameState, mySymbol, handleRestart, mat
   const SHELL_R: number = gameState?.shell_r ?? 5;
   const LIVES_MAX: number = gameState?.lives_max ?? 3;
   const knockoutOrder: Seat[] = gameState?.knockout_order ?? [];
+  const lastOut: Seat | null = gameState?.last_out ?? null;
   const winner: Seat | null = gameState?.winner ?? null;
 
   const mySeat = SEATS.find(s => s === mySymbol) ?? null;
   const iCanMove = phase === "playing" && !!mySeat && !!tanks[mySeat]?.alive;
+
+  // 3-2-1-Go! overlay when the match starts (client-side only; the server is already running)
+  const [countIdx, setCountIdx] = useState<number | null>(null);
+  const countTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // null until the first state arrives, so a refresh mid-match does not count down
+  useOnChange<string | null>(gameState ? phase : null, (next, prev) => {
+    countTimers.current.forEach(clearTimeout);
+    countTimers.current = [];
+    if (next !== "playing" || prev !== "lobby") { setCountIdx(null); return; }
+    const step = COUNTDOWN_MS / COUNTDOWN.length;
+    COUNTDOWN.forEach((_, i) => {
+      countTimers.current.push(setTimeout(() => {
+        setCountIdx(i);
+        play(i === COUNTDOWN.length - 1 ? "turn" : "click");
+      }, i * step));
+    });
+    countTimers.current.push(setTimeout(() => setCountIdx(null), COUNTDOWN_MS));
+  });
+
+  // "💥 Name is out!" pop-up; the result overlay takes over once there is a winner
+  const [banner, setBanner] = useState<string | null>(null);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useOnChange<number | null>(gameState ? knockoutOrder.length : null, (next, prev) => {
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    if (next === null || prev === null || next <= prev || winner || !lastOut) { setBanner(null); return; }
+    setBanner(`💥 ${nameForSymbol(gameState, lastOut) ?? SEAT_INFO[lastOut].label} is out!`);
+    bannerTimer.current = setTimeout(() => setBanner(null), KNOCKOUT_MS);
+  });
+
+  // 💥 bursts on hit tanks and broken crates, each removed after BURST_MS
+  const [bursts, setBursts] = useState<Burst[]>([]);
+  const burstId = useRef(0);
+  const burstTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const addBurst = (x: number, y: number) => {
+    const id = ++burstId.current;
+    setBursts(b => [...b, { id, x, y }]);
+    burstTimers.current.push(setTimeout(() => setBursts(b => b.filter(v => v.id !== id)), BURST_MS));
+  };
+
+  // A tank lost a heart: 💥 on it + "hit". Skip the lobby (reset makes the totals drop).
+  const livesKey = SEATS.map(s => (active[s] ? lives[s] ?? 0 : 0)).join(",");
+  useOnChange<string | null>(gameState ? livesKey : null, (next, prev) => {
+    if (phase === "lobby" || next === null || prev === null) return;
+    const n = next.split(",").map(Number), p = prev.split(",").map(Number);
+    let any = false;
+    SEATS.forEach((s, i) => {
+      const t = tanks[s];
+      if (n[i] < p[i] && t) { addBurst(t.x, t.y); any = true; }
+    });
+    if (any) play("hit");
+  });
+
+  // A crate broke: 💥 on its tile + "pop"
+  const mapKey = map.join("");
+  useOnChange<string | null>(gameState ? mapKey : null, (next, prev) => {
+    if (phase === "lobby" || next === null || prev === null || next.length !== prev.length) return;
+    const cols = map[0]?.length ?? 15;
+    let any = false;
+    for (let i = 0; i < next.length; i++) {
+      if (prev[i] === "C" && next[i] === ".") {
+        addBurst((i % cols) * TILE + TILE / 2, Math.floor(i / cols) * TILE + TILE / 2);
+        any = true;
+      }
+    }
+    if (any) play("pop");
+  });
+
+  // Someone fired: a shell count per owner went up
+  const shellsKey = SEATS.map(s => shells.filter(b => b.owner === s).length).join(",");
+  useOnChange<string | null>(gameState ? shellsKey : null, (next, prev) => {
+    if (phase !== "playing" || next === null || prev === null) return;
+    const n = next.split(",").map(Number), p = prev.split(",").map(Number);
+    if (n.some((v, i) => v > p[i])) play("fire");
+  });
+
+  useEffect(() => () => {
+    countTimers.current.forEach(clearTimeout);
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    burstTimers.current.forEach(clearTimeout);
+  }, []);
 
   // Scale the arena to fit the game area (not the window: the chat panel takes part of it),
   // leaving room for the cards and controls. WIDE matches the @3xl container query below.
@@ -199,10 +286,10 @@ export default function TankBattle({ ws, gameState, mySymbol, handleRestart, mat
             map={map}
             tanks={tanks}
             shells={shells}
-            bursts={[]}
+            bursts={bursts}
             mySeat={mySeat}
-            countdown={null}
-            banner={null}
+            countdown={countIdx !== null ? COUNTDOWN[countIdx] : null}
+            banner={winner ? null : banner}
           />
         </div>
         <div className="hidden @3xl:block @3xl:col-start-3 @3xl:row-start-1 self-start">{card("TR")}</div>

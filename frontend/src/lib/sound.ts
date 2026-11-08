@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useSyncExternalStore } from "react";
 
-export type SoundName = "click" | "place" | "drop" | "hit" | "miss" | "pop" | "dice" | "turn" | "win" | "lose";
+export type SoundName = "click" | "place" | "drop" | "hit" | "miss" | "pop" | "dice" | "turn" | "win" | "lose" | "fire";
 const STORAGE_KEY = "gamehub_sound";
 type Note = { freq: number; to?: number; at: number; dur: number; type?: OscillatorType; gain?: number };
 const tones = (freqs: number[], step: number, dur: number, type: OscillatorType): Note[] =>
@@ -17,6 +17,7 @@ const SOUNDS: Record<SoundName, Note[]> = {
   turn:  tones([880, 1320], 0.1, 0.14, "sine"),
   win:   tones([523, 659, 784, 1047], 0.11, 0.16, "triangle"),
   lose:  tones([392, 330, 262], 0.16, 0.22, "sine"),
+  fire:  [{ freq: 240, to: 90, at: 0, dur: 0.12, type: "square", gain: 0.07 }],
 };
 
 let ctx: AudioContext | null = null;
