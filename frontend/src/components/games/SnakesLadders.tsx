@@ -1,13 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-
-interface SnakesLaddersProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
+import type { GameProps } from "@/lib/types";
 
 const SNAKES:  Record<number, number> = { 99:78, 95:75, 87:36, 62:19, 54:34, 17:7 };
 const LADDERS: Record<number, number> = { 4:14, 9:31, 20:38, 28:84, 40:59, 51:67, 63:81, 71:91 };
@@ -51,7 +45,7 @@ const CARD_COLORS: Record<string, string> = {
   extra_turn:  "border-green-500/60 bg-green-900/30 hover:bg-green-800/50",
 };
 
-export default function SnakesLadders({ ws, gameState, mySymbol, handleRestart }: SnakesLaddersProps) {
+export default function SnakesLadders({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [rolling, setRolling] = useState(false);
   const [displayDice, setDisplayDice] = useState(1);
   const [animIv, setAnimIv] = useState<ReturnType<typeof setInterval> | null>(null);

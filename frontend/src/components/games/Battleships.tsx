@@ -1,14 +1,8 @@
 import { useState, useMemo } from "react";
 import { Loader2, Ship, Target, Shuffle } from "lucide-react";
+import type { GameProps } from "@/lib/types";
 
-interface BattleshipsProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
-
-export default function Battleships({ ws, gameState, mySymbol, handleRestart }: BattleshipsProps) {
+export default function Battleships({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [localPlacements, setLocalPlacements] = useState<number[]>([]);
 
   if (!gameState) {

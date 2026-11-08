@@ -1,15 +1,9 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Loader2 } from "lucide-react";
+import type { GameProps } from "@/lib/types";
 
-interface PingPongProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
-
-export default function PingPong({ ws, gameState, mySymbol, handleRestart }: PingPongProps) {
+export default function PingPong({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 

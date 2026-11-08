@@ -1,13 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2 } from "lucide-react";
-
-interface TetrisProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
+import type { GameProps } from "@/lib/types";
 
 const ROWS = 20;
 const COLS = 10;
@@ -39,7 +33,7 @@ const COLORS = [
 type Matrix = number[][];
 const createEmptyBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 
-export default function Tetris({ ws, gameState, mySymbol, handleRestart }: TetrisProps) {
+export default function Tetris({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [board, setBoard] = useState<Matrix>(createEmptyBoard());
   const [piece, setPiece] = useState<{ shape: Matrix; x: number; y: number; color: number } | null>(null);
   const [gameOverLocal, setGameOverLocal] = useState(false);

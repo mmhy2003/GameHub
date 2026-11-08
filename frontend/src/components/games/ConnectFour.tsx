@@ -1,13 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-
-interface ConnectFourProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
+import type { GameProps } from "@/lib/types";
 
 const DISC_COLORS: Record<string, string> = {
   R: "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.8)]",
@@ -18,7 +12,7 @@ const DISC_HOVER: Record<string, string> = {
   Y: "hover:bg-yellow-400/40",
 };
 
-export default function ConnectFour({ ws, gameState, mySymbol, handleRestart }: ConnectFourProps) {
+export default function ConnectFour({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [hoverCol, setHoverCol] = useState<number | null>(null);
 
   const board = gameState?.board ?? [];

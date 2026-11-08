@@ -1,15 +1,9 @@
 "use client";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import type { GameProps } from "@/lib/types";
 
-interface NumberDuelProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
-
-export default function NumberDuel({ ws, gameState, mySymbol, handleRestart }: NumberDuelProps) {
+export default function NumberDuel({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [pick, setPick] = useState(50);
 
   const phase = gameState?.phase ?? "picking";

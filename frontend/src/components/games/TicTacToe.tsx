@@ -1,13 +1,7 @@
 import { Loader2 } from "lucide-react";
+import type { GameProps } from "@/lib/types";
 
-interface TicTacToeProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
-
-export default function TicTacToe({ ws, gameState, mySymbol, handleRestart }: TicTacToeProps) {
+export default function TicTacToe({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   if (!gameState) {
      return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>;
   }

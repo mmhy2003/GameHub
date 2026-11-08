@@ -1,18 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
-
-interface RPSProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
+import type { GameProps } from "@/lib/types";
 
 const EMOJI: Record<string, string> = { rock: "🪨", paper: "📄", scissors: "✂️" };
 const CHOICES = ["rock", "paper", "scissors"] as const;
 
-export default function RockPaperScissors({ ws, gameState, mySymbol, handleRestart }: RPSProps) {
+export default function RockPaperScissors({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [showReveal, setShowReveal] = useState(false);
 
   const phase = gameState?.phase ?? "picking";

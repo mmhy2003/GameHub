@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Loader2, HelpCircle, CheckCircle, XCircle } from "lucide-react";
+import type { GameProps } from "@/lib/types";
 
 // ─── Character Data (mirrors backend) ────────────────────────────────────────
 export const CHARACTERS = [
@@ -123,14 +124,7 @@ function CharacterAvatar({ char, size = 80 }: { char: Character; size?: number }
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-interface GuessWhoProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
-
-export default function GuessWho({ ws, gameState, mySymbol, handleRestart }: GuessWhoProps) {
+export default function GuessWho({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [eliminated, setEliminated] = useState<Set<number>>(new Set());
   const [guessMode, setGuessMode] = useState(false);
   const [askText, setAskText] = useState("");

@@ -1,13 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-
-interface HangmanProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
+import type { GameProps } from "@/lib/types";
 
 const MAX_WRONG = 6;
 
@@ -38,7 +32,7 @@ function HangmanSVG({ wrong }: { wrong: number }) {
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-export default function Hangman({ ws, gameState, mySymbol, handleRestart }: HangmanProps) {
+export default function Hangman({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [wordInput, setWordInput] = useState("");
 
   const phase = gameState?.phase ?? "setting";

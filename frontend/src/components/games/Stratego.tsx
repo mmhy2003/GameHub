@@ -1,13 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
 import { Loader2, Shuffle, CheckCircle } from "lucide-react";
-
-interface StrategoProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
+import type { GameProps } from "@/lib/types";
 
 const ROWS = 8, COLS = 8;
 
@@ -65,7 +59,7 @@ const RESULT_MSG: Record<string, string> = {
   both: "Both eliminated!",
 };
 
-export default function Stratego({ ws, gameState, mySymbol, handleRestart }: StrategoProps) {
+export default function Stratego({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [selectedInventoryRank, setSelectedInventoryRank] = useState<number | null>(null);
   const [selectedPiece, setSelectedPiece] = useState<[number, number] | null>(null);
   const [validMoves, setValidMoves]   = useState<number[][]>([]);

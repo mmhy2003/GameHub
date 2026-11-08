@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { Send, ArrowLeft, Loader2 } from "lucide-react";
+import { Send, ArrowLeft, Copy } from "lucide-react";
 import TicTacToe from "@/components/games/TicTacToe";
 import Battleships from "@/components/games/Battleships";
 import Tetris from "@/components/games/Tetris";
@@ -15,6 +15,9 @@ import GuessWho from "@/components/games/GuessWho";
 import SnakesLadders from "@/components/games/SnakesLadders";
 import Stratego from "@/components/games/Stratego";
 import GameHelp from "@/components/GameHelp";
+import SoundToggle from "@/components/ui/SoundToggle";
+import ToyButton from "@/components/ui/ToyButton";
+import type { MatchScore } from "@/lib/types";
 
 function RoomContent() {
   const router = useRouter();
@@ -40,6 +43,8 @@ function RoomContent() {
   const [messageInput, setMessageInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,7 +55,7 @@ function RoomContent() {
     // If name is passed via URL param (embedded mode), use it directly
     const resolvedName = paramName.trim() || localStorage.getItem("gamehub_username") || "";
     if (!resolvedName) {
-      router.push("/");
+      router.push(`/?room=${encodeURIComponent(roomId)}`);
       return;
     }
     if (paramName.trim()) {
@@ -61,7 +66,7 @@ function RoomContent() {
     // Get JWT token — redirect to home if missing
     const token = sessionStorage.getItem("gamehub_token");
     if (!token) {
-      router.push("/");
+      router.push(`/?room=${encodeURIComponent(roomId)}`);
       return;
     }
 
@@ -118,17 +123,29 @@ function RoomContent() {
     setMessageInput("");
   };
 
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
+
+  const handleCopyInvite = async () => {
+    const link = `${window.location.origin}/room/${roomId}?game=${gameType}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopyStatus("idle"), 1500);
+  };
+
   const handleRestart = () => {
     if (!ws) return;
     ws.send(JSON.stringify({ action: "restart" }));
   };
 
   if (!username || !ws) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-200 w-full">
-        <Loader2 className="animate-spin text-indigo-500" size={48} />
-      </div>
-    );
+    return <RoomLoading />;
   }
 
   if (roomError) {
@@ -142,58 +159,54 @@ function RoomContent() {
       : null;
 
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-200 w-full px-4">
-        <div className="bg-slate-900/80 border border-rose-500/40 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl backdrop-blur-md max-w-sm w-full text-center">
-          <div className="text-4xl">⚠️</div>
-          <h2 className="text-xl font-bold text-rose-400">Room Conflict</h2>
-          <p className="text-slate-400 text-sm">{roomError}</p>
-          <div className="flex flex-col gap-2 w-full mt-2">
+      <div className="min-h-screen bg-toy-stripes flex items-center justify-center text-ink w-full px-4">
+        <div className="chunk bg-white p-8 flex flex-col items-center gap-4 max-w-sm w-full text-center animate-pop">
+          <div className="text-5xl">⚠️</div>
+          <h2 className="text-2xl font-bold text-candy-red">Room Conflict</h2>
+          <p className="text-ink/70 text-sm">{roomError}</p>
+          <div className="flex flex-col gap-3 w-full mt-2">
             {joinExistingUrl && (
-              <button
-                onClick={() => router.push(joinExistingUrl)}
-                className="w-full px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-semibold transition-all shadow-lg"
-              >
-                Join Existing {actualGameType?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())} Game
-              </button>
+              <ToyButton color="blue" className="w-full text-white" onClick={() => router.push(joinExistingUrl)}>
+                Join existing {actualGameType?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())} game
+              </ToyButton>
             )}
-            <button
-              onClick={() => router.push("/")}
-              className="w-full px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-200 font-semibold transition-all"
-            >
-              Back to Dashboard
-            </button>
+            <ToyButton color="white" className="w-full" onClick={() => router.push("/")}>
+              Back to lobby
+            </ToyButton>
           </div>
         </div>
       </div>
     );
   }
 
+  const matchScore: MatchScore | undefined = gameState?.match_score;
+
   const renderGame = () => {
      switch (gameType) {
        case "tic-tac-toe":
-         return <TicTacToe ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <TicTacToe ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "battleships":
-         return <Battleships ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <Battleships ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "tetris":
-         return <Tetris ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <Tetris ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "ping-pong":
-         return <PingPong ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <PingPong ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "connect-four":
-         return <ConnectFour ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <ConnectFour ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "rock-paper-scissors":
-         return <RockPaperScissors ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <RockPaperScissors ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "hangman":
-         return <Hangman ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <Hangman ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "number-duel":
-         return <NumberDuel ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <NumberDuel ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "minesweeper":
-         return <Minesweeper ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <Minesweeper ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "guess-who":
-         return <GuessWho ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <GuessWho ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "snakes-ladders":
-         return <SnakesLadders ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <SnakesLadders ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "stratego":
-         return <Stratego ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} />;
+         return <Stratego ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        default:
          return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-rose-500 font-mono">Unknown Game Type: {gameType}</div>;
      }
@@ -202,37 +215,36 @@ function RoomContent() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row w-full max-w-full overflow-hidden">
       {/* Game Area */}
-      <div className="flex-1 flex flex-col relative w-full h-screen">
-        <div className="absolute top-0 w-full h-96 bg-gradient-to-br from-indigo-900/10 to-transparent pointer-events-none" />
-        
-        <header className="py-2 px-3 md:px-4 flex items-center justify-between relative z-10 border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-md">
-          <button
-            onClick={() => router.push("/")}
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors"
-          >
+      <div className="flex-1 flex flex-col relative w-full h-screen min-w-0">
+        <header className="h-14 shrink-0 px-3 flex items-center gap-2 bg-candy-yellow border-b-[3px] border-ink text-ink relative z-10">
+          <ToyButton color="white" size="sm" onClick={() => router.push("/")} aria-label="Back to lobby" className="h-9">
             <ArrowLeft size={16} />
-            <span className="hidden md:inline text-sm">Dashboard</span>
-          </button>
-          <div className="text-center absolute left-1/2 -translate-x-1/2">
-            <h1 className="text-sm font-bold font-mono tracking-tight text-indigo-400 leading-none">
-              {roomId.length > 6 ? roomId.slice(0, 6) + "…" : roomId}
-              <span className="hidden sm:inline text-slate-500 font-normal"> · {gameType.replace(/-/g, " ")}</span>
-            </h1>
-          </div>
-          <div className="flex items-center gap-1.5 text-slate-300 bg-slate-800 px-2.5 py-1 rounded-full text-xs font-medium border border-slate-700">
-            <span className="hidden sm:inline">{username}</span>
-            <span className="hidden sm:inline text-slate-500">|</span>
-            <span className={mySymbol === "X" ? "text-blue-400 font-bold" : mySymbol === "O" ? "text-rose-400 font-bold" : "text-slate-400"}>
-              {mySymbol || "👁"}
-            </span>
+            <span className="hidden sm:inline">Lobby</span>
+          </ToyButton>
+          <h1 className="hidden sm:block flex-1 min-w-0 truncate text-center text-lg font-bold capitalize">
+            {gameType.replace(/-/g, " ")}
+          </h1>
+          <div className="flex-1 sm:flex-none flex items-center justify-end gap-2 min-w-0">
+            <div className="chunk-sm bg-white font-mono text-xs flex items-center gap-1.5 pl-2.5 pr-1 h-9 min-w-0">
+              <span className="truncate" title={roomId}>
+                {roomId.length > 8 ? roomId.slice(0, 8) + "…" : roomId}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyInvite}
+                aria-label="Copy invite link"
+                title="Copy invite link"
+                className="shrink-0 flex items-center gap-1 rounded-lg bg-candy-blue/15 hover:bg-candy-blue/30 px-1.5 py-1 font-sans font-bold transition-colors"
+              >
+                {copyStatus === "copied" ? "Copied! ✓" : copyStatus === "failed" ? "Copy failed" : <Copy size={14} />}
+              </button>
+            </div>
+            <GameHelp gameType={gameType} />
+            <SoundToggle />
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col relative z-0 overflow-y-auto overflow-x-hidden">
-           {/* Floating help button — top-left of the game area */}
-           <div className="absolute top-2 left-2 z-20">
-             <GameHelp gameType={gameType} />
-           </div>
+        <main className="flex-1 flex flex-col relative z-0 overflow-y-auto overflow-x-hidden bg-toy-stripes">
            {renderGame()}
         </main>
       </div>
@@ -317,9 +329,18 @@ function RoomContent() {
   );
 }
 
+function RoomLoading() {
+  return (
+    <div className="min-h-screen bg-cream text-ink flex flex-col items-center justify-center gap-3 w-full">
+      <div className="text-6xl animate-bob" aria-hidden="true">🎲</div>
+      <p className="font-bold text-lg">Loading room…</p>
+    </div>
+  );
+}
+
 export default function RoomPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>}>
+    <Suspense fallback={<RoomLoading />}>
       <RoomContent />
     </Suspense>
   )

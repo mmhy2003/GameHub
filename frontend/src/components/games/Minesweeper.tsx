@@ -1,13 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Loader2, Flag, Bomb } from "lucide-react";
-
-interface MinesweeperProps {
-  ws: WebSocket;
-  gameState: any;
-  mySymbol: string | null;
-  handleRestart: () => void;
-}
+import type { GameProps } from "@/lib/types";
 
 // Classic Minesweeper number colours
 const NUM_COLORS: Record<string, string> = {
@@ -21,7 +15,7 @@ const NUM_COLORS: Record<string, string> = {
   "8": "text-slate-400",
 };
 
-export default function Minesweeper({ ws, gameState, mySymbol, handleRestart }: MinesweeperProps) {
+export default function Minesweeper({ ws, gameState, mySymbol, handleRestart }: GameProps) {
   const [flagMode, setFlagMode] = useState(false);
 
   const board: string[][] = gameState?.board ?? [];
