@@ -11,6 +11,7 @@ class MinesweeperLogic:
         self.board: list[list[int]] | None = None
         self.revealed = [[False] * COLS for _ in range(ROWS)]
         self.flagged = [[False] * COLS for _ in range(ROWS)]
+        self.revealed_by: list[list[str | None]] = [[None] * COLS for _ in range(ROWS)]
         self.mine_positions: set[tuple[int, int]] = set()
         self.cells_to_reveal = ROWS * COLS - MINES
         self.revealed_count = 0
@@ -57,18 +58,19 @@ class MinesweeperLogic:
                     row.append(count)
             self.board.append(row)
 
-    def _flood_reveal(self, row: int, col: int):
+    def _flood_reveal(self, row: int, col: int, symbol: str):
         if not (0 <= row < ROWS and 0 <= col < COLS):
             return
         if self.revealed[row][col] or self.flagged[row][col]:
             return
         self.revealed[row][col] = True
+        self.revealed_by[row][col] = symbol
         self.revealed_count += 1
         if self.board[row][col] == 0:
             for dr in range(-1, 2):
                 for dc in range(-1, 2):
                     if dr != 0 or dc != 0:
-                        self._flood_reveal(row + dr, col + dc)
+                        self._flood_reveal(row + dr, col + dc, symbol)
 
     def get_state(self):
         visible = []
@@ -103,6 +105,7 @@ class MinesweeperLogic:
             "cells_to_reveal": self.cells_to_reveal,
             "flags_placed": flags_placed,
             "mines_remaining": MINES - flags_placed,
+            "revealed_by": [row[:] for row in self.revealed_by],
         }
 
     def make_move(self, symbol: str, **kwargs) -> bool:
@@ -127,10 +130,11 @@ class MinesweeperLogic:
 
             if (row, col) in self.mine_positions:
                 self.revealed[row][col] = True
+                self.revealed_by[row][col] = symbol
                 self.phase = "lost"
                 return True
 
-            self._flood_reveal(row, col)
+            self._flood_reveal(row, col, symbol)
             if self.revealed_count >= self.cells_to_reveal:
                 self.phase = "won"
             return True
@@ -156,6 +160,7 @@ class MinesweeperLogic:
         self.board = None
         self.revealed = [[False] * COLS for _ in range(ROWS)]
         self.flagged = [[False] * COLS for _ in range(ROWS)]
+        self.revealed_by: list[list[str | None]] = [[None] * COLS for _ in range(ROWS)]
         self.mine_positions = set()
         self.revealed_count = 0
         self.first_click = True
