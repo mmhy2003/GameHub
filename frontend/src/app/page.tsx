@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import GameCard from "@/components/GameCard";
 import ToyButton from "@/components/ui/ToyButton";
 import { GAMES, GAME_CATEGORIES, type GameCategory } from "@/data/games";
+import { getSavedRoom, saveRoom, clearSavedRoom } from "@/lib/roomMemory";
 
 function HomeContent() {
   const router = useRouter();
@@ -19,6 +20,7 @@ function HomeContent() {
   const [username, setUsername] = useState("");
   const [isNameSet, setIsNameSet] = useState(false);
   const [roomId, setRoomId] = useState(paramRoom);
+  const [savedRoom, setSavedRoom] = useState("");
   const [filter, setFilter] = useState<"All" | GameCategory>("All");
   const [tokenError, setTokenError] = useState("");
 
@@ -89,6 +91,20 @@ function HomeContent() {
     });
   }, [paramName]);
 
+  useEffect(() => {
+    // ?room= wins over the remembered room and becomes the remembered room (GH-59)
+    if (paramRoom) {
+      saveRoom(paramRoom);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reads sessionStorage after hydration
+      setRoomId(paramRoom);
+      return;
+    }
+    const saved = getSavedRoom();
+    if (!saved) return;
+    setSavedRoom(saved);
+    setRoomId(saved);
+  }, [paramRoom]);
+
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = username.trim();
@@ -112,6 +128,12 @@ function HomeContent() {
   };
 
   const actionLabel = paramRoom || roomId.trim() ? "Join" : "Create game";
+  const showSavedRoom = savedRoom !== "" && roomId.trim() === savedRoom;
+  const clearRoom = () => {
+    setRoomId("");
+    setSavedRoom("");
+    clearSavedRoom();
+  };
   const visibleGames = GAMES.filter(g => filter === "All" || g.category === filter);
 
   if (!isNameSet) {
@@ -176,16 +198,28 @@ function HomeContent() {
         </header>
 
         {!paramRoom && (
-          <section className="chunk bg-candy-yellow p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-3">
-            <label htmlFor="room-code" className="font-bold text-lg shrink-0">Have a room code?</label>
-            <input
-              id="room-code"
-              type="text"
-              placeholder="Paste it here, then pick the game"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              className="flex-1 min-w-0 chunk-sm bg-white px-4 py-2 font-mono focus:outline-none"
-            />
+          <section className="chunk bg-candy-yellow p-4 md:p-5 flex flex-col gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <label htmlFor="room-code" className="font-bold text-lg shrink-0">Have a room code?</label>
+              <input
+                id="room-code"
+                type="text"
+                placeholder="Paste it here, then pick the game"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="flex-1 min-w-0 chunk-sm bg-white px-4 py-2 font-mono focus:outline-none"
+              />
+              {showSavedRoom && (
+                <ToyButton color="white" size="sm" onClick={clearRoom} aria-label="Clear saved room code" className="shrink-0 self-start sm:self-auto">
+                  ✕ Clear
+                </ToyButton>
+              )}
+            </div>
+            {showSavedRoom && (
+              <p className="text-sm font-semibold text-ink/80">
+                Last room: <span className="font-mono font-bold">{savedRoom}</span>. Pick the next game to play there, or clear it to start a new room.
+              </p>
+            )}
           </section>
         )}
 
