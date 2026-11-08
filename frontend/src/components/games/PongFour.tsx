@@ -20,6 +20,8 @@ const TELEPORT_DIST = 60;
 const HIT_SLACK = 8;
 const KNOCKOUT_MS = 1500;
 const MEDALS = ["🥇", "🥈", "🥉"];
+// Game-area width (px) from which the cards sit around the court; Tailwind's @3xl container size (48rem)
+const WIDE = 768;
 
 type Point = { x: number; y: number };
 
@@ -130,19 +132,25 @@ export default function PongFour({ ws, gameState, mySymbol, handleRestart, match
     if (bannerTimer.current) clearTimeout(bannerTimer.current);
   }, []);
 
-  // Scale the court to fit the window, leaving room for the cards and controls
+  // Scale the court to fit the game area (not the window: the chat panel takes part of it),
+  // leaving room for the cards and controls. WIDE matches the @3xl container query below.
+  const areaRef = useRef<HTMLDivElement>(null);
+  const inLobby = phase === "lobby" || !gameState;
   useEffect(() => {
+    const el = areaRef.current;
+    if (!el) return;
     const update = () => {
-      const phone = window.innerWidth < 768;
-      const w = window.innerWidth - (phone ? 32 : 32 + 2 * 190);
-      const h = window.innerHeight - (phone ? 380 : 2 * 110 + 120);
+      const wide = el.clientWidth >= WIDE;
+      const w = el.clientWidth - (wide ? 32 + 2 * 180 + 2 * 12 + 6 : 32 + 6);
+      const h = el.clientHeight - (wide ? 2 * 80 + 2 * 12 + 32 + 40 : 2 * 80 + 8 + 2 * 12 + 32 + 80 + 6);
       const next = Math.min(w / FIELD, Math.max(h, 100) / FIELD, 1);
       setScale(Math.max(next, 0.1));
     };
-    window.addEventListener("resize", update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
     update();
-    return () => window.removeEventListener("resize", update);
-  }, [FIELD]);
+    return () => ro.disconnect();
+  }, [FIELD, inLobby]);
 
   const sendMove = (action_type: "set_ready" | "start") =>
     ws.send(JSON.stringify({ action: "move", action_type }));
@@ -224,7 +232,7 @@ export default function PongFour({ ws, gameState, mySymbol, handleRestart, match
             </ToyButton>
           ) : (
             <div className="w-full flex flex-col items-center gap-2">
-              <ToyButton size="lg" className="w-full"disabled={readyCount < 2} onClick={() => sendMove("start")}>
+              <ToyButton size="lg" className="w-full" disabled={readyCount < 2} onClick={() => sendMove("start")}>
                 Start with {readyCount} players
               </ToyButton>
               <div className="text-ink/60 text-xs font-bold">Starts by itself when everyone is ready</div>
@@ -253,18 +261,18 @@ export default function PongFour({ ws, gameState, mySymbol, handleRestart, match
   );
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 sm:gap-4 p-4 relative select-none overflow-hidden">
+    <div ref={areaRef} className="@container flex-1 flex flex-col items-center justify-center gap-3 p-4 relative select-none overflow-hidden">
 
-      {/* Phone: 2×2 cards above the court */}
-      <div className="md:hidden grid grid-cols-2 gap-2 w-full max-w-sm">
+      {/* Narrow game area: 2×2 cards above the court */}
+      <div className="@3xl:hidden grid grid-cols-2 gap-2 w-full max-w-sm">
         {SEATS.map(s => <div key={s} className="min-w-0">{card(s)}</div>)}
       </div>
 
-      {/* Desktop: cards around the court; phone: just the court */}
-      <div className="flex justify-center md:grid md:grid-cols-[auto_auto_auto] md:items-center md:justify-items-center md:gap-3">
-        <div className="hidden md:block md:col-start-2 md:row-start-1 w-[220px]">{card("T")}</div>
-        <div className="hidden md:block md:col-start-1 md:row-start-2 w-[180px]">{card("L")}</div>
-        <div className="md:col-start-2 md:row-start-2">
+      {/* Wide game area: cards around the court; narrow: just the court */}
+      <div className="flex justify-center @3xl:grid @3xl:grid-cols-[auto_auto_auto] @3xl:items-center @3xl:justify-items-center @3xl:gap-3">
+        <div className="hidden @3xl:block @3xl:col-start-2 @3xl:row-start-1 w-[220px]">{card("T")}</div>
+        <div className="hidden @3xl:block @3xl:col-start-1 @3xl:row-start-2 w-[180px]">{card("L")}</div>
+        <div className="@3xl:col-start-2 @3xl:row-start-2">
           <PongFourCourt
             size={{ field: FIELD, corner: CORNER, paddleLen: PADDLE_LEN, paddleW: PADDLE_W, inset: INSET, ballR: BALL_R }}
             scale={scale}
@@ -278,8 +286,8 @@ export default function PongFour({ ws, gameState, mySymbol, handleRestart, match
             banner={winner ? null : banner}
           />
         </div>
-        <div className="hidden md:block md:col-start-3 md:row-start-2 w-[180px]">{card("R")}</div>
-        <div className="hidden md:block md:col-start-2 md:row-start-3 w-[220px]">{card("B")}</div>
+        <div className="hidden @3xl:block @3xl:col-start-3 @3xl:row-start-2 w-[180px]">{card("R")}</div>
+        <div className="hidden @3xl:block @3xl:col-start-2 @3xl:row-start-3 w-[220px]">{card("B")}</div>
       </div>
 
       {/* Controls hint / mobile buttons — live players only */}
