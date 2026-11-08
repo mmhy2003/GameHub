@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from jose import jwt, JWTError
+import jwt
 
 from games import get_game_logic
 
@@ -32,7 +32,7 @@ def create_token(username: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 def decode_token(token: str) -> dict:
-    """Returns {"session_id": ..., "username": ...} or raises JWTError."""
+    """Returns {"session_id": ..., "username": ...} or raises jwt.PyJWTError."""
     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     return {"session_id": payload["sub"], "username": payload["username"]}
 
@@ -214,7 +214,7 @@ async def websocket_endpoint(websocket: WebSocket, game_type: str, room_id: str,
         claims     = decode_token(token)
         session_id = claims["session_id"]
         username   = claims["username"]
-    except JWTError:
+    except jwt.PyJWTError:
         await websocket.accept()
         await websocket.send_json({"type": "error", "code": "UNAUTHORIZED", "message": "Invalid or expired token. Please refresh the page."})
         await websocket.close(code=4001)
