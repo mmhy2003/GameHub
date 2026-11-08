@@ -79,6 +79,12 @@ class GameRoom:
         self.game_logic = get_game_logic(game_type)
         self.loop_task: Optional[asyncio.Task] = None
 
+        # symbol → games won in this room; survives restarts
+        self.match_score:     Dict[str, int]       = {}
+        self.match_draws:     int                  = 0
+        # True once the current game's result has been counted
+        self._result_counted: bool                 = False
+
     async def connect(self, websocket: WebSocket, session_id: str, username: str):
         await websocket.accept()
         self.players.append(websocket)
@@ -114,6 +120,22 @@ class GameRoom:
     def reset_game(self):
         if self.game_logic:
             self.game_logic.reset()
+            self._result_counted = False
+
+    def record_result(self) -> bool:
+        """Count the finished game once. Returns True only when it counted now."""
+        gl = self.game_logic
+        if not gl or self._result_counted:
+            return False
+        winner = getattr(gl, "winner", None)
+        if winner:
+            self.match_score[winner] = self.match_score.get(winner, 0) + 1
+        elif getattr(gl, "is_draw", False):
+            self.match_draws += 1
+        else:
+            return False
+        self._result_counted = True
+        return True
 
     def maybe_start_loop(self):
         if (self.game_logic and
@@ -128,6 +150,7 @@ class GameRoom:
                getattr(self.game_logic, "phase", "") == "playing" and
                len(self.players) > 0):
             self.game_logic.tick()
+            self.record_result()
             await self.broadcast_state()
             if getattr(self.game_logic, "winner", None):
                 win_sym  = self.game_logic.winner
@@ -162,6 +185,7 @@ class GameRoom:
                 "players":    list(name_symbol_map.keys()),
                 "symbols":    name_symbol_map,
                 "my_session": session_id,
+                "match_score": {"wins": dict(self.match_score), "draws": self.match_draws},
             })
 
             try:
@@ -252,6 +276,7 @@ async def websocket_endpoint(websocket: WebSocket, game_type: str, room_id: str,
                 move_kwargs = {k: v for k, v in parsed.items() if k != "action"}
                 success = room.make_move(session_id, **move_kwargs)
                 if success:
+                    room.record_result()
                     if not getattr(room.game_logic, "needs_server_loop", False):
                         await room.broadcast_state()
                         if room.game_logic and getattr(room.game_logic, "winner", None):
