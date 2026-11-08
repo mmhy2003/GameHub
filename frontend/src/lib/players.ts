@@ -19,3 +19,8 @@ export function resultTitle(gs: WithSymbols, winner: string | null | undefined, 
   if (outcome === "lose") return "You lose 😢";
   return `${nameForSymbol(gs, winner) ?? "Player " + winner} wins!`;
 }
+/** Lives left in a first-to-`lives` match: ❤️ per life, 🤍 per round the opponent has won. */
+export function hearts(lost: number, lives = 3): string {
+  const gone = Math.min(lives, Math.max(0, lost));
+  return "❤️".repeat(lives - gone) + "🤍".repeat(gone);
+}
