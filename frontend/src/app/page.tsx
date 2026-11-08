@@ -20,6 +20,7 @@ function HomeContent() {
   const [isNameSet, setIsNameSet] = useState(false);
   const [roomId, setRoomId] = useState(paramRoom);
   const [filter, setFilter] = useState<"All" | GameCategory>("All");
+  const [tokenError, setTokenError] = useState("");
 
   // Build a query string that forwards all embed params into room URLs
   const embedParams = (game: string, rid: string) => {
@@ -71,14 +72,22 @@ function HomeContent() {
       return;
     }
     const savedName = localStorage.getItem("gamehub_username");
-    const savedToken = sessionStorage.getItem("gamehub_token");
-    if (savedName && savedToken) {
-      setUsername(savedName);
-      setIsNameSet(true);
-    }
+    if (!savedName) return;
+    setUsername(savedName);
+    setIsNameSet(true);
+    if (sessionStorage.getItem("gamehub_token")) return;
+    // Returning player whose session token is gone: get a new one quietly instead of asking again
+    fetchToken(savedName).then(token => {
+      if (!token) {
+        // Back to the form with the name kept filled in, so one click retries
+        setIsNameSet(false);
+        setTokenError("Couldn't reach the server. Please try again.");
+        return;
+      }
+      sessionStorage.setItem("gamehub_token", token);
+      returnToInvite();
+    });
   }, [paramName]);
-
-  const [tokenError, setTokenError] = useState("");
 
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
