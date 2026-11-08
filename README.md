@@ -10,6 +10,7 @@ A real-time peer-to-peer multiplayer game platform. Two players share a room cod
 | Battleships | Turn-based | 2 |
 | Tetris | Real-time (competitive) | 2 |
 | Ping-Pong | Real-time | 2 |
+| Tank Battle | Real-time | 2–4 |
 | Connect Four | Turn-based | 2 |
 | Rock Paper Scissors | Simultaneous pick | 2 |
 

@@ -11,6 +11,7 @@ from .minesweeper import MinesweeperLogic
 from .guess_who import GuessWhoLogic
 from .snakes_ladders import SnakesLaddersLogic
 from .stratego import StrategoLogic
+from .tank_battle import TankBattleLogic
 
 def get_game_logic(game_type: str):
     if game_type == "tic-tac-toe":
@@ -39,4 +40,6 @@ def get_game_logic(game_type: str):
         return SnakesLaddersLogic()
     elif game_type == "stratego":
         return StrategoLogic()
+    elif game_type == "tank-battle":
+        return TankBattleLogic()
     return None

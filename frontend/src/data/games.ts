@@ -43,6 +43,11 @@ export const GAMES: GameInfo[] = [
     description: "Up to 4 friends defend the sides of a square court. Miss and lose a heart, and the last player standing wins!",
   },
   {
+    key: "tank-battle", title: "Tank Battle", cover: "/games/tank_battle_cover.svg", emoji: "🛡️",
+    category: "Action", playTime: "5 min", accent: "yellow",
+    description: "2 to 4 tanks, one arena. Drive, shoot and smash crates. The last tank with hearts left wins!",
+  },
+  {
     key: "connect-four", title: "Connect Four", cover: "/games/connect_four_cover.png", emoji: "🔴",
     category: "Classic", playTime: "5 min", accent: "blue",
     description: "Drop discs and connect four in a row — horizontally, vertically, or diagonally.",
