@@ -107,8 +107,9 @@ export default function PongFour({ ws, gameState, mySymbol, handleRestart, match
     countTimers.current.push(setTimeout(() => setCountIdx(null), COUNTDOWN_MS));
   });
 
-  // Losing a heart pops (null until the first state arrives, so joining mid-match is silent)
-  const livesLeft = SEATS.reduce((sum, s) => sum + (lives[s] ?? 0), 0);
+  // Losing a heart pops (null until the first state arrives, so joining mid-match is silent).
+  // Only active seats count: lobby seats are inactive, so the total rises at the start instead of dropping.
+  const livesLeft = SEATS.reduce((sum, s) => sum + (active[s] ? lives[s] ?? 0 : 0), 0);
   useOnChange<number | null>(gameState ? livesLeft : null, (next, prev) => {
     if (phase === "playing" && next !== null && prev !== null && next < prev) play("pop");
   });
