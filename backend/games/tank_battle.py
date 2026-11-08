@@ -1,3 +1,5 @@
+import math
+
 FIELD = 600            # square arena, 600 x 600
 TILE = 40
 GRID = FIELD // TILE   # 15 x 15 tiles
@@ -120,6 +122,21 @@ class TankBattleLogic:
             self._start()
             return True
 
+        if action_type in ("drive", "turn"):
+            state = kwargs.get("state", "stop")
+            allowed = ("fwd", "back", "stop") if action_type == "drive" else ("left", "right", "stop")
+            if state not in allowed:
+                return False
+            if self.phase != "playing" or not self._alive(symbol):
+                return False
+            self.inputs[symbol][action_type] = state
+            return True
+
+        if action_type == "fire":
+            if self.phase != "playing" or not self._alive(symbol):
+                return False
+            return self._fire(symbol)
+
         return False
 
     def _start(self):
@@ -141,9 +158,112 @@ class TankBattleLogic:
     def _alive(self, s: str) -> bool:
         return self.active[s] and self.lives[s] > 0
 
+    def _fire(self, s: str) -> bool:
+        t = self.tanks[s]
+        if t["cooldown"] > 0 or sum(1 for b in self.shells if b["owner"] == s) >= MAX_SHELLS:
+            return False
+        a = math.radians(t["angle"])
+        dx, dy = math.cos(a), math.sin(a)
+        d = TANK_R + SHELL_R + 1   # just in front of the barrel
+        self.shells.append({
+            "x": t["x"] + dx * d, "y": t["y"] + dy * d,
+            "vx": dx * SHELL_SPEED, "vy": dy * SHELL_SPEED, "owner": s,
+        })
+        t["cooldown"] = FIRE_COOLDOWN
+        return True
+
     def tick(self):
-        """Called by the server game loop each frame (~30fps). Movement comes in step 2."""
-        return
+        """Called by the server game loop each frame (~30fps)."""
+        if self.phase != "playing":
+            return
+        for t in self.tanks.values():
+            t["cooldown"] = max(0, t["cooldown"] - 1)
+            t["blink"] = max(0, t["blink"] - 1)
+        for s in SEATS:
+            if self._alive(s):
+                self._move_tank(s)
+        self._move_shells()
+
+    def _move_tank(self, s: str):
+        t = self.tanks[s]
+        inp = self.inputs[s]
+        t["angle"] = (t["angle"] + {"left": -TURN_DEG, "right": TURN_DEG}.get(inp["turn"], 0)) % 360
+        step = {"fwd": TANK_SPEED, "back": -TANK_SPEED}.get(inp["drive"], 0)
+        if not step:
+            return
+        a = math.radians(t["angle"])
+        # x then y on their own, so a tank slides along a wall instead of sticking to it
+        nx = t["x"] + math.cos(a) * step
+        if not self._tank_blocked(s, nx, t["y"]):
+            t["x"] = nx
+        ny = t["y"] + math.sin(a) * step
+        if not self._tank_blocked(s, t["x"], ny):
+            t["y"] = ny
+
+    def _tank_blocked(self, s: str, x: float, y: float) -> bool:
+        if x < TANK_R or x > FIELD - TANK_R or y < TANK_R or y > FIELD - TANK_R:
+            return True
+        if self._solid_tile_near(x, y, TANK_R) is not None:
+            return True
+        # Other tanks, alive or wrecked
+        return any(o != s and math.hypot(t["x"] - x, t["y"] - y) < 2 * TANK_R
+                   for o, t in self.tanks.items())
+
+    def _solid_tile_near(self, x: float, y: float, rad: float):
+        """(row, col) of the first steel or crate tile that a circle at (x, y) overlaps, else None."""
+        for row in range(max(0, int((y - rad) // TILE)), min(GRID - 1, int((y + rad) // TILE)) + 1):
+            for col in range(max(0, int((x - rad) // TILE)), min(GRID - 1, int((x + rad) // TILE)) + 1):
+                if self.grid[row][col] == ".":
+                    continue
+                px = min(max(x, col * TILE), col * TILE + TILE)
+                py = min(max(y, row * TILE), row * TILE + TILE)
+                if (x - px) ** 2 + (y - py) ** 2 < rad * rad:
+                    return row, col
+        return None
+
+    def _tank_hit_by(self, b: dict):
+        for o, t in self.tanks.items():
+            if o != b["owner"] and math.hypot(t["x"] - b["x"], t["y"] - b["y"]) < TANK_R + SHELL_R:
+                return o
+        return None
+
+    def _move_shells(self):
+        kept = []
+        for b in self.shells:
+            b["x"] += b["vx"]
+            b["y"] += b["vy"]
+            if not (0 <= b["x"] <= FIELD and 0 <= b["y"] <= FIELD):
+                continue                      # left the arena
+            tile = self._solid_tile_near(b["x"], b["y"], SHELL_R)
+            if tile is not None:
+                row, col = tile
+                if self.grid[row][col] == "C":
+                    self.grid[row][col] = "."  # crate breaks; steel stays
+                continue
+            target = self._tank_hit_by(b)
+            if target is None:
+                kept.append(b)
+                continue
+            # The shell stops at any tank; only an alive, non-blinking one loses a heart
+            if self._alive(target) and self.tanks[target]["blink"] == 0:
+                self._hit(target)
+                if self.phase == "finished":
+                    self.shells = []
+                    return
+        self.shells = kept
+
+    def _hit(self, s: str):
+        self.lives[s] -= 1
+        self.tanks[s]["blink"] = BLINK_TICKS
+        if self.lives[s] == 0:
+            self.tanks[s]["blink"] = 0
+            self.knockout_order.append(s)
+            self.last_out = s
+            self.inputs[s] = {"drive": "stop", "turn": "stop"}
+            alive = [x for x in SEATS if self._alive(x)]
+            if len(alive) == 1:
+                self.winner = alive[0]
+                self.phase = "finished"
 
     def reset(self):
         """Back to the lobby: seats kept, ready flags cleared, map and hearts restored."""
