@@ -265,7 +265,7 @@ export default function SnakesLadders({ ws, gameState, mySymbol, handleRestart, 
             <div
               key={s}
               title={name}
-              className={`absolute z-20 w-[7%] aspect-square -translate-x-1/2 -translate-y-1/2 chunk-sm rounded-full! flex items-center justify-center font-black text-ink text-[min(2.8vw,0.85rem)] ${avatarColor(name)}`}
+              className={`absolute z-20 w-[7%] aspect-square -translate-x-1/2 -translate-y-1/2 motion-reduce:transition-none! chunk-sm rounded-full! flex items-center justify-center font-black text-ink text-[min(2.8vw,0.85rem)] ${avatarColor(name)}`}
               style={{
                 left: `${x + (both ? (s === "A" ? -2 : 2) : 0)}%`,
                 top: `${y + (both ? (s === "A" ? -1.5 : 1.5) : 0)}%`,

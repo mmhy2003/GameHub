@@ -46,7 +46,7 @@ export default function Minesweeper({ ws, gameState, mySymbol, handleRestart }: 
 
   const handleCellClick = (r: number, c: number, e: React.MouseEvent) => {
     e.preventDefault();
-    if (phase === "won" || phase === "lost") return;
+    if (!mySymbol || phase === "won" || phase === "lost") return;
 
     const isRightClick = e.type === "contextmenu";
     if (isRightClick || flagMode) {
@@ -79,7 +79,7 @@ export default function Minesweeper({ ws, gameState, mySymbol, handleRestart }: 
         onClick={(e) => handleCellClick(r, c, e)}
         onContextMenu={(e) => handleCellClick(r, c, e)}
         className={`relative w-[min(6.4vw,1.9rem)] aspect-square flex items-center justify-center font-black select-none text-[min(4vw,1.1rem)] leading-none ${bg}`}
-        disabled={(!isHidden && !isFlag) || over}
+        disabled={!mySymbol || (!isHidden && !isFlag) || over}
         aria-label={`Row ${r + 1}, column ${c + 1}`}
       >
         {isFlag && <span className="animate-pop">🚩</span>}

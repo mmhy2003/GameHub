@@ -225,12 +225,12 @@ function RoomContent() {
        case "stratego":
          return <Stratego ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        default:
-         return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-rose-500 font-mono">Unknown Game Type: {gameType}</div>;
+         return <div className="flex-1 flex flex-col items-center justify-center text-center mt-20 text-candy-red font-mono">Unknown Game Type: {gameType}</div>;
      }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row w-full max-w-full overflow-hidden">
+    <div className="min-h-screen bg-cream text-ink flex flex-col md:flex-row w-full max-w-full overflow-hidden">
       {/* Game Area */}
       <div className={`flex-1 flex flex-col relative w-full h-screen min-w-0 ${chatEnabled && !chatOpen ? "pb-14 md:pb-0" : ""}`}>
         <header className="h-14 shrink-0 px-3 flex items-center gap-2 bg-candy-yellow border-b-[3px] border-ink text-ink relative z-10">
@@ -262,7 +262,12 @@ function RoomContent() {
         </header>
 
         <main className="flex-1 flex flex-col relative z-0 overflow-y-auto overflow-x-hidden bg-toy-stripes">
-           {renderGame()}
+           {/* Mount the game only once real state arrives so its useOnChange sounds and animations start from it */}
+           {gameState ? (
+             renderGame()
+           ) : (
+             <div className="flex-1 flex items-center justify-center text-5xl animate-bob" aria-label="Connecting…">🎲</div>
+           )}
         </main>
       </div>
 

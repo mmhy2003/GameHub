@@ -60,6 +60,10 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart, matchSc
   useOnChange(myScore, (n, p) => { if (n > p) play("pop"); });
   useOnChange(myGarbage, (n, p) => { if (n > p) play("hit"); });
 
+  const resetLocal = () => { setGameOverLocal(false); isPlayingLocal.current = false; setBoard(createEmptyBoard()); setPiece(null); };
+  // A restart by either player returns to the lobby: clear the local well for both
+  useOnChange(phase, (p) => { if (p === "lobby") resetLocal(); });
+
   useEffect(() => { boardRef.current = board; }, [board]);
   useEffect(() => { pieceRef.current = piece; }, [piece]);
 
@@ -146,7 +150,7 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart, matchSc
 
   // Keyboard controls — only while playing
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || !mySymbol) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) return;
       e.preventDefault(); // Stop page scrolling for all game keys
@@ -168,18 +172,18 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart, matchSc
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dropDown, checkCollision, mergePiece, gameOverLocal, winner]);
+  }, [dropDown, checkCollision, mergePiece, gameOverLocal, winner, mySymbol]);
 
   // Game loop — only starts when both players are ready
   useEffect(() => {
-    if (!gameState || !isPlaying || gameOverLocal || winner) return;
+    if (!gameState || !mySymbol || !isPlaying || gameOverLocal || winner) return;
     if (!isPlayingLocal.current) {
       spawnPiece();
       isPlayingLocal.current = true;
     }
     const int = setInterval(dropDown, TICK_RATE);
     return () => clearInterval(int);
-  }, [gameState, dropDown, spawnPiece, gameOverLocal, winner]);
+  }, [gameState, mySymbol, dropDown, spawnPiece, gameOverLocal, winner]);
 
   // All hooks done — safe to do early loading return now
   if (!gameState) {
@@ -268,8 +272,6 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart, matchSc
   const sticker = "chunk-sm bg-white rounded-xl px-2 py-1 text-ink text-center";
   const label = "text-[0.65rem] sm:text-xs font-bold uppercase tracking-wide text-ink/60";
 
-  const resetLocal = () => { setGameOverLocal(false); isPlayingLocal.current = false; setBoard(createEmptyBoard()); setPiece(null); };
-
   return (
     <div className="flex-1 flex flex-col items-center p-2 sm:p-4 gap-3 sm:gap-4 relative z-10 w-full overflow-y-auto overflow-x-hidden outline-none" tabIndex={0}>
       {cards}
@@ -309,8 +311,8 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart, matchSc
         <span>←/→ Move</span><span>↑ Rotate</span><span>↓ Drop</span><span>Space Hard drop</span>
       </div>
 
-      {/* Touch controls — visible only on small screens */}
-      <div className="md:hidden flex flex-wrap justify-center gap-2 w-full">
+      {/* Touch controls — visible only on small screens, and only to players */}
+      {mySymbol && <div className="md:hidden flex flex-wrap justify-center gap-2 w-full">
         {controls.map(([icon, name, id]) => (
           <button
             key={name}
@@ -319,7 +321,7 @@ export default function Tetris({ ws, gameState, mySymbol, handleRestart, matchSc
             className="game-btn btn-toy w-16 h-16 rounded-2xl bg-candy-yellow text-ink text-2xl font-black flex items-center justify-center select-none"
           >{icon}</button>
         ))}
-      </div>
+      </div>}
 
       <ResultOverlay
         open={!!winner || isDraw}

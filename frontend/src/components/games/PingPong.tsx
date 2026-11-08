@@ -123,7 +123,7 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart, match
   }, [ws]);
 
   useEffect(() => {
-    if (phase !== "playing") return;
+    if (phase !== "playing" || !mySymbol) return;
     const held = new Set<string>();
     const onDown = (e: KeyboardEvent) => {
       if (!["ArrowUp", "ArrowDown", "w", "W", "s", "S"].includes(e.key)) return;
@@ -149,7 +149,7 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart, match
       window.removeEventListener("keyup", onUp);
       sendPaddle("stop");
     };
-  }, [phase, sendPaddle]);
+  }, [phase, mySymbol, sendPaddle]);
 
   // ── Loading ──
   if (!gameState) {
@@ -191,7 +191,7 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart, match
 
   const bubble = (sym: "L" | "R", score: number) => (
     <div className={`chunk bg-white text-ink px-4 py-1 sm:px-5 flex flex-col items-center min-w-20 ${sym === mySymbol ? "ring-4 ring-candy-yellow" : ""}`}>
-      <div className="flex items-center gap-1.5 text-xs font-bold max-w-28 sm:max-w-40">
+      <div className="flex items-center gap-1.5 text-xs font-bold max-w-16 sm:max-w-40">
         <span className={`inline-block w-2.5 h-2.5 rounded-full border-2 border-ink shrink-0 ${sym === "L" ? "bg-candy-blue" : "bg-candy-pink"}`} />
         <span className="truncate">{nameOf(sym)}{sym === mySymbol && " (you)"}</span>
       </div>
@@ -258,8 +258,8 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart, match
         )}
       </div>
 
-      {/* Controls hint / mobile buttons */}
-      <div className="flex flex-col items-center gap-3 w-full max-w-sm z-10">
+      {/* Controls hint / mobile buttons — players only */}
+      {mySymbol && <div className="flex flex-col items-center gap-3 w-full max-w-sm z-10">
         {/* Keyboard hint — desktop only */}
         <div className="hidden md:flex gap-6 text-ink/60 text-xs font-bold">
           <span>W / ↑ — move up</span>
@@ -277,7 +277,7 @@ export default function PingPong({ ws, gameState, mySymbol, handleRestart, match
             onPointerUp={() => sendPaddle("stop")}
             onPointerCancel={() => sendPaddle("stop")}>▼</button>
         </div>
-      </div>
+      </div>}
 
       <ResultOverlay
         open={!!winner || isDraw}

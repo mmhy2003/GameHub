@@ -82,7 +82,7 @@ export default function TicTacToe({ ws, gameState, mySymbol, handleRestart, matc
               onClick={() => handleCellClick(idx)}
               disabled={!canPlay}
               aria-label={cell ? `Square ${idx + 1}: ${cell}` : `Square ${idx + 1}: empty`}
-              className={`group w-[min(26vw,7.5rem)] aspect-square rounded-2xl border-[3px] border-ink flex items-center justify-center font-black text-[min(17vw,5rem)] leading-none transition-colors
+              className={`group w-[min(24vw,7.5rem)] aspect-square rounded-2xl border-[3px] border-ink flex items-center justify-center font-black text-[min(17vw,5rem)] leading-none transition-colors
                 ${winLine.includes(idx) ? "bg-candy-yellow" : "bg-white"}
                 ${canPlay ? "cursor-pointer hover:bg-cream-2" : "cursor-default"}`}
             >
