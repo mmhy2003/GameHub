@@ -1,16 +1,164 @@
 "use client";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import ToyButton from "@/components/ui/ToyButton";
 import { nameForSymbol } from "@/lib/players";
-import { SEATS, SEAT_INFO, seatedSeats } from "@/lib/pongFour";
+import { SEATS, SEAT_INFO, seatedSeats, type Seat } from "@/lib/pongFour";
+import { play } from "@/lib/sound";
+import { useOnChange } from "@/lib/useOnChange";
 import type { GameProps } from "@/lib/types";
+import PongFourCard, { type PongFourCardState } from "./PongFourCard";
+import PongFourCourt, { TRAIL_LEN } from "./PongFourCourt";
+
+const SQUISH_MS = 120;
+const COUNTDOWN = ["3", "2", "1", "Go!"];
+const COUNTDOWN_MS = 1500;
+// A jump this far in one frame is a serve reset, not a bounce (ball moves 6 units/tick)
+const TELEPORT_DIST = 60;
+// Extra slack, in court units, when deciding that a bounce happened at a paddle
+const HIT_SLACK = 8;
+
+type Point = { x: number; y: number };
+
+const KEYS = {
+  x: { neg: ["ArrowLeft", "a", "A"], pos: ["ArrowRight", "d", "D"] },
+  y: { neg: ["ArrowUp", "w", "W"], pos: ["ArrowDown", "s", "S"] },
+} as const;
 
 export default function PongFour({ ws, gameState, mySymbol }: GameProps) {
+  const [scale, setScale] = useState(1);
+
   const phase = gameState?.phase ?? "lobby";
   const ready: Record<string, boolean> = gameState?.ready ?? {};
+  const active: Record<string, boolean> = gameState?.active ?? {};
+  const lives: Record<string, number> = gameState?.lives ?? {};
+  const paddlesRaw: Record<string, number> = gameState?.paddles ?? {};
+  const ballX: number = gameState?.ball_x ?? 300;
+  const ballY: number = gameState?.ball_y ?? 300;
+  const FIELD: number = gameState?.field ?? 600;
+  const CORNER: number = gameState?.corner ?? 50;
+  const PADDLE_LEN: number = gameState?.paddle_len ?? 100;
+  const PADDLE_W: number = gameState?.paddle_w ?? 12;
+  const INSET: number = gameState?.paddle_inset ?? 20;
+  const BALL_R: number = gameState?.ball_r ?? 9;
+  const LIVES_MAX: number = gameState?.lives_max ?? 3;
+
+  const isAlive = (s: Seat) => !!active[s] && (lives[s] ?? 0) > 0;
+  const mySeat = SEATS.find(s => s === mySymbol) ?? null;
+  const myAxis = mySeat ? SEAT_INFO[mySeat].axis : null;
+  const iCanMove = phase === "playing" && !!mySeat && isAlive(mySeat);
+
+  // Ball trail and squish: the last positions live in a ref, the rendered copy in state
+  const trailRef = useRef<Point[]>([]);
+  const lastDir = useRef<Point>({ x: 0, y: 0 });
+  const [trail, setTrail] = useState<Point[]>([]);
+  const [squish, setSquish] = useState(false);
+  const squishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevBall = useRef<Point>({ x: ballX, y: ballY });
+
+  useOnChange(`${ballX},${ballY}`, () => {
+    const prev = prevBall.current;
+    prevBall.current = { x: ballX, y: ballY };
+    const dx = ballX - prev.x;
+    const dy = ballY - prev.y;
+    if (Math.hypot(dx, dy) > TELEPORT_DIST) {
+      // Serve reset: start a fresh trail, no bounce
+      trailRef.current = [];
+      lastDir.current = { x: 0, y: 0 };
+      setTrail([]);
+      return;
+    }
+    trailRef.current = [...trailRef.current, prev].slice(-TRAIL_LEN);
+    setTrail(trailRef.current);
+    const flipped = (d: number, last: number) => d !== 0 && last !== 0 && Math.sign(d) !== Math.sign(last);
+    if (flipped(dx, lastDir.current.x) || flipped(dy, lastDir.current.y)) {
+      // Only a bounce next to a live player's edge is a paddle hit; walls and corners are silent
+      const reach = INSET + PADDLE_W + BALL_R + HIT_SLACK;
+      const edgeDist: Record<Seat, number> = { B: FIELD - ballY, T: ballY, L: ballX, R: FIELD - ballX };
+      if (SEATS.some(s => isAlive(s) && edgeDist[s] <= reach)) play("hit");
+      setSquish(true);
+      if (squishTimer.current) clearTimeout(squishTimer.current);
+      squishTimer.current = setTimeout(() => setSquish(false), SQUISH_MS);
+    }
+    lastDir.current = { x: dx !== 0 ? dx : lastDir.current.x, y: dy !== 0 ? dy : lastDir.current.y };
+  });
+
+  // 3-2-1-Go! overlay when the match starts (client-side only; the server is already running)
+  const [countIdx, setCountIdx] = useState<number | null>(null);
+  const countTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // null until the first state arrives, so a refresh mid-match does not count down
+  useOnChange<string | null>(gameState ? phase : null, (next, prev) => {
+    countTimers.current.forEach(clearTimeout);
+    countTimers.current = [];
+    if (next !== "playing" || prev !== "lobby") { setCountIdx(null); return; }
+    const step = COUNTDOWN_MS / COUNTDOWN.length;
+    COUNTDOWN.forEach((_, i) => {
+      countTimers.current.push(setTimeout(() => {
+        setCountIdx(i);
+        play(i === COUNTDOWN.length - 1 ? "turn" : "click");
+      }, i * step));
+    });
+    countTimers.current.push(setTimeout(() => setCountIdx(null), COUNTDOWN_MS));
+  });
+
+  useEffect(() => () => {
+    countTimers.current.forEach(clearTimeout);
+    if (squishTimer.current) clearTimeout(squishTimer.current);
+  }, []);
+
+  // Scale the court to fit the window, leaving room for the cards and controls
+  useEffect(() => {
+    const update = () => {
+      const phone = window.innerWidth < 768;
+      const w = window.innerWidth - (phone ? 32 : 32 + 2 * 190);
+      const h = window.innerHeight - (phone ? 380 : 2 * 110 + 120);
+      const next = Math.min(w / FIELD, Math.max(h, 100) / FIELD, 1);
+      setScale(Math.max(next, 0.1));
+    };
+    window.addEventListener("resize", update);
+    update();
+    return () => window.removeEventListener("resize", update);
+  }, [FIELD]);
 
   const sendMove = (action_type: "set_ready" | "start") =>
     ws.send(JSON.stringify({ action: "move", action_type }));
+
+  const sendPaddle = useCallback((state: "neg" | "pos" | "stop") => {
+    ws.send(JSON.stringify({ action: "move", action_type: "paddle", state }));
+  }, [ws]);
+
+  // Keyboard controls for your side's axis
+  useEffect(() => {
+    if (!iCanMove || !myAxis) return;
+    const { neg, pos } = KEYS[myAxis];
+    const isNeg = (k: string) => (neg as readonly string[]).includes(k);
+    const isPos = (k: string) => (pos as readonly string[]).includes(k);
+    const held = new Set<"neg" | "pos">();
+    const onDown = (e: KeyboardEvent) => {
+      if (!isNeg(e.key) && !isPos(e.key)) return;
+      e.preventDefault(); // Stop page scrolling for all paddle keys
+      if (e.repeat) return;
+      if (isNeg(e.key) && !held.has("neg")) {
+        held.add("neg"); held.delete("pos"); sendPaddle("neg");
+      } else if (isPos(e.key) && !held.has("pos")) {
+        held.add("pos"); held.delete("neg"); sendPaddle("pos");
+      }
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (isNeg(e.key)) held.delete("neg");
+      if (isPos(e.key)) held.delete("pos");
+      if (held.size === 0) sendPaddle("stop");
+      else if (held.has("neg")) sendPaddle("neg");
+      else sendPaddle("pos");
+    };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      sendPaddle("stop");
+    };
+  }, [iCanMove, myAxis, sendPaddle]);
 
   // ── Loading ──
   if (!gameState) {
@@ -63,10 +211,69 @@ export default function PongFour({ ws, gameState, mySymbol }: GameProps) {
     );
   }
 
-  // ── Game / Finished ── (court arrives in the next step)
+  // ── Game / Finished ──
+  const seated = seatedSeats(gameState);
+  const cardState = (s: Seat): PongFourCardState =>
+    !seated.includes(s) ? "empty" : !active[s] ? "wall" : (lives[s] ?? 0) === 0 ? "out" : "playing";
+  const card = (s: Seat) => (
+    <PongFourCard seat={s} name={nameForSymbol(gameState, s)} lives={lives[s] ?? 0} livesMax={LIVES_MAX}
+      state={cardState(s)} isMe={s === mySymbol} />
+  );
+  const paddles = Object.fromEntries(SEATS.map(s => [s, paddlesRaw[s] ?? FIELD / 2])) as Record<Seat, number>;
+  const alive = Object.fromEntries(SEATS.map(s => [s, isAlive(s)])) as Record<Seat, boolean>;
+  const padBtn = (state: "neg" | "pos", label: string, glyph: string) => (
+    <button aria-label={label} className="game-btn btn-toy w-20 h-20 rounded-2xl bg-candy-yellow text-ink text-3xl font-black flex items-center justify-center"
+      onPointerDown={(e) => { e.preventDefault(); sendPaddle(state); }}
+      onPointerUp={() => sendPaddle("stop")}
+      onPointerCancel={() => sendPaddle("stop")}>{glyph}</button>
+  );
+
   return (
-    <div className="flex-1 flex items-center justify-center p-4">
-      <div className="chunk bg-white text-ink font-black text-xl px-6 py-4">Match in progress…</div>
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 sm:gap-4 p-4 relative select-none overflow-hidden">
+
+      {/* Phone: 2×2 cards above the court */}
+      <div className="md:hidden grid grid-cols-2 gap-2 w-full max-w-sm">
+        {SEATS.map(s => <div key={s} className="min-w-0">{card(s)}</div>)}
+      </div>
+
+      {/* Desktop: cards around the court; phone: just the court */}
+      <div className="flex justify-center md:grid md:grid-cols-[auto_auto_auto] md:items-center md:justify-items-center md:gap-3">
+        <div className="hidden md:block md:col-start-2 md:row-start-1 w-[220px]">{card("T")}</div>
+        <div className="hidden md:block md:col-start-1 md:row-start-2 w-[180px]">{card("L")}</div>
+        <div className="md:col-start-2 md:row-start-2">
+          <PongFourCourt
+            size={{ field: FIELD, corner: CORNER, paddleLen: PADDLE_LEN, paddleW: PADDLE_W, inset: INSET, ballR: BALL_R }}
+            scale={scale}
+            paddles={paddles}
+            alive={alive}
+            showWalls
+            ball={{ x: ballX, y: ballY }}
+            trail={trail}
+            squish={squish}
+            countdown={countIdx !== null ? COUNTDOWN[countIdx] : null}
+            banner={null}
+          />
+        </div>
+        <div className="hidden md:block md:col-start-3 md:row-start-2 w-[180px]">{card("R")}</div>
+        <div className="hidden md:block md:col-start-2 md:row-start-3 w-[220px]">{card("B")}</div>
+      </div>
+
+      {/* Controls hint / mobile buttons — live players only */}
+      {iCanMove && myAxis && <div className="flex flex-col items-center gap-3 w-full max-w-sm z-10">
+        {/* Keyboard hint — desktop only */}
+        <div className="hidden md:flex gap-6 text-ink/60 text-xs font-bold">
+          {myAxis === "x"
+            ? <><span>A / ← move left</span><span>D / → move right</span></>
+            : <><span>W / ↑ move up</span><span>S / ↓ move down</span></>}
+        </div>
+
+        {/* Mobile D-pad — touch only */}
+        <div className="md:hidden flex gap-6">
+          {myAxis === "x"
+            ? <>{padBtn("neg", "Move left", "◀")}{padBtn("pos", "Move right", "▶")}</>
+            : <>{padBtn("neg", "Move up", "▲")}{padBtn("pos", "Move down", "▼")}</>}
+        </div>
+      </div>}
     </div>
   );
 }
