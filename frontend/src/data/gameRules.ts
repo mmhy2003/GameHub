@@ -132,6 +132,22 @@ export const GAME_RULES: Record<string, GameRule> = {
     tips: ["Hit the ball with the end of your paddle to send it off at a sharp angle."],
   },
 
+  "tank-battle": {
+    title: "Tank Battle",
+    icon: "🛡️",
+    objective: "Shoot the other tanks and be the last tank with hearts left.",
+    rules: [
+      "2 to 4 players each drive a tank from one corner: Blue, Pink, Purple and Orange.",
+      "Everyone presses Ready. The match starts when all seated players are ready, or when a ready player presses Start (at least 2 ready). Players who are not ready sit the round out.",
+      "W / ↑ drives forward, S / ↓ reverses, A / D or ← / → turns, and Space fires. On a phone, hold ▲ ▼ ⟲ ⟳ and tap FIRE.",
+      "Shells fly straight and stop at the first wall, crate or tank. You can have 2 shells in the air at once.",
+      "Grey steel blocks never break. Wooden crates break in one hit.",
+      "Each hit costs a heart, and everyone starts with 3. After a hit your tank blinks and cannot be hit for 1 second.",
+      "With no hearts left your tank is out and stays on the map as a wreck. The last tank with hearts wins.",
+    ],
+    tips: ["Your own shells can't hurt you. Break crates to open new lanes and use steel as cover."],
+  },
+
   "minesweeper": {
     title: "Co-op Minesweeper",
     icon: "💣",
