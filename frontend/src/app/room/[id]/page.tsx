@@ -269,7 +269,7 @@ function RoomContent() {
       {/* Chat Area — hidden when ?chat=false. Bottom drawer on phones, side panel on desktop. */}
       {chatEnabled && (
       <aside className={`fixed inset-x-0 bottom-0 z-40 rounded-t-2xl chunk overflow-hidden bg-cream text-ink flex flex-col transition-[height] duration-300
-        md:static md:z-20 md:w-80 md:h-screen md:shrink-0 md:rounded-none md:border-0 md:border-l-[3px] md:border-ink md:shadow-none
+        md:static md:z-20 md:w-80 md:h-screen md:shrink-0 md:rounded-none! md:border-0! md:border-l-[3px]! md:border-ink md:shadow-none!
         ${chatOpen ? "h-[55vh]" : "h-12"}`}>
         {/* Header — the 48px handle on phones, tap to toggle */}
         <button
@@ -317,7 +317,7 @@ function RoomContent() {
                       <p className="text-3xl leading-tight">{msg.message}</p>
                     ) : (
                       <p className={`chunk-sm rounded-2xl px-3 py-1.5 text-sm leading-relaxed wrap-break-word ${
-                        isMe ? "bg-candy-blue text-white rounded-br-sm" : "bg-white text-ink rounded-bl-sm"
+                        isMe ? "bg-candy-blue text-white rounded-br-sm!" : "bg-white text-ink rounded-bl-sm!"
                       }`}>
                         {msg.message}
                       </p>
