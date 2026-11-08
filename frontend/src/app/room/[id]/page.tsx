@@ -17,7 +17,12 @@ import Stratego from "@/components/games/Stratego";
 import GameHelp from "@/components/GameHelp";
 import SoundToggle from "@/components/ui/SoundToggle";
 import ToyButton from "@/components/ui/ToyButton";
+import Avatar from "@/components/ui/Avatar";
+import { play } from "@/lib/sound";
 import type { MatchScore } from "@/lib/types";
+
+const REACTIONS = ["👏", "😂", "😱", "🔥", "GG"];
+const BIG_EMOJI = /^(\p{Extended_Pictographic}|GG){1,3}$/u;
 
 function RoomContent() {
   const router = useRouter();
@@ -43,6 +48,7 @@ function RoomContent() {
   const [messageInput, setMessageInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const chatOpenRef = useRef(chatOpen);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -87,7 +93,8 @@ function RoomContent() {
         }
       } else if (data.type === "chat") {
         setChatMessages(prev => [...prev, data]);
-        setUnreadCount(prev => chatOpen ? 0 : prev + 1);
+        setUnreadCount(prev => chatOpenRef.current ? 0 : prev + 1);
+        if (data.sender !== resolvedName && data.sender !== "System") play("pop");
       } else if (data.type === "error") {
         if (data.code === "UNAUTHORIZED") {
           // Token expired — clear and redirect to get a fresh token
@@ -112,6 +119,10 @@ function RoomContent() {
   }, [roomId, router, gameType]);
 
   useEffect(() => {
+    chatOpenRef.current = chatOpen;
+  }, [chatOpen]);
+
+  useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
@@ -121,6 +132,12 @@ function RoomContent() {
 
     ws.send(JSON.stringify({ action: "chat", message: messageInput.trim() }));
     setMessageInput("");
+  };
+
+  const sendReaction = (reaction: string) => {
+    if (!ws) return;
+    ws.send(JSON.stringify({ action: "chat", message: reaction }));
+    play("pop");
   };
 
   useEffect(() => () => {
@@ -215,7 +232,7 @@ function RoomContent() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row w-full max-w-full overflow-hidden">
       {/* Game Area */}
-      <div className="flex-1 flex flex-col relative w-full h-screen min-w-0">
+      <div className={`flex-1 flex flex-col relative w-full h-screen min-w-0 ${chatEnabled && !chatOpen ? "pb-14 md:pb-0" : ""}`}>
         <header className="h-14 shrink-0 px-3 flex items-center gap-2 bg-candy-yellow border-b-[3px] border-ink text-ink relative z-10">
           <ToyButton color="white" size="sm" onClick={() => router.push("/")} aria-label="Back to lobby" className="h-9">
             <ArrowLeft size={16} />
@@ -249,54 +266,62 @@ function RoomContent() {
         </main>
       </div>
 
-      {/* Chat Area — hidden when ?chat=false */}
+      {/* Chat Area — hidden when ?chat=false. Bottom drawer on phones, side panel on desktop. */}
       {chatEnabled && (
-      <div className={`w-full md:h-screen md:w-96 md:min-w-[320px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shadow-2xl z-20 transition-all duration-300
-        ${chatOpen ? "h-[38vh]" : "h-auto"}`}>
-        {/* Chat header — always visible, tap to toggle on mobile */}
-        <div
-          className="p-3 md:p-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur z-10 flex justify-between items-center cursor-pointer md:cursor-default select-none"
+      <aside className={`fixed inset-x-0 bottom-0 z-40 rounded-t-2xl chunk overflow-hidden bg-cream text-ink flex flex-col transition-[height] duration-300
+        md:static md:z-20 md:w-80 md:h-screen md:shrink-0 md:rounded-none md:border-0 md:border-l-[3px] md:border-ink md:shadow-none
+        ${chatOpen ? "h-[55vh]" : "h-12"}`}>
+        {/* Header — the 48px handle on phones, tap to toggle */}
+        <button
+          type="button"
+          aria-expanded={chatOpen}
           onClick={() => { setChatOpen(o => !o); setUnreadCount(0); }}
+          className="h-12 shrink-0 px-4 flex items-center justify-between gap-2 bg-candy-pink text-white font-bold border-b-[3px] border-ink select-none md:cursor-default"
         >
-          <div>
-            <h2 className="font-semibold text-slate-200 flex items-center gap-2">
-              Room Chat
-              {!chatOpen && unreadCount > 0 && (
-                <span className="text-[10px] bg-indigo-600 text-white font-bold px-1.5 py-0.5 rounded-full">{unreadCount}</span>
-              )}
-            </h2>
-            <p className="text-[10px] md:text-xs text-slate-500">{players.length} player(s) joined</p>
-          </div>
-          {/* Chevron toggle — mobile only */}
-          <span className="md:hidden text-slate-500 text-xs">{chatOpen ? "▼ Hide" : "▲ Show"}</span>
-        </div>
-        
-        {/* Messages + input — always visible on desktop, toggle on mobile */}
-        <div className={`flex-col flex-1 overflow-hidden ${chatOpen ? "flex" : "hidden md:flex"}`}>
-          <div className="flex-1 p-3 md:p-4 overflow-y-auto space-y-4 custom-scrollbar">
+          <span className="flex items-center gap-2">
+            Room chat 💬
+            {!chatOpen && unreadCount > 0 && (
+              <span className="md:hidden chunk-sm rounded-full! bg-candy-yellow text-ink text-xs px-2 py-0.5 leading-none">{unreadCount}</span>
+            )}
+          </span>
+          <span className="flex items-center gap-2 text-xs">
+            <span className="bg-white/25 rounded-full px-2 py-0.5">👥 {players.length}</span>
+            <span className="md:hidden">{chatOpen ? "▼" : "▲"}</span>
+          </span>
+        </button>
+
+        {/* Messages, reactions and input — always visible on desktop, drawer body on phones */}
+        <div className={`flex-col flex-1 min-h-0 ${chatOpen ? "flex" : "hidden md:flex"}`}>
+          <div className="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
             {chatMessages.map((msg, idx) => {
               const isMe = msg.sender === username;
               const isSystem = msg.sender === "System";
-              
+
               if (isSystem) {
                 return (
-                  <div key={idx} className="flex justify-center my-2 animate-fade-in">
-                    <span className="text-[10px] md:text-[11px] font-medium bg-slate-800/80 text-slate-400 px-3 py-1 rounded-full border border-slate-700/50 text-center max-w-[90%]">
+                  <div key={idx} className="flex justify-center animate-fade-in">
+                    <span className="text-[11px] font-medium bg-cream-2 text-ink/70 px-3 py-1 rounded-full text-center max-w-[90%]">
                       {msg.message}
                     </span>
                   </div>
                 );
               }
 
+              const isBig = BIG_EMOJI.test(msg.message);
               return (
-                <div key={idx} className={`flex flex-col animate-fade-in ${isMe ? "items-end" : "items-start"}`}>
-                  <span className="text-[9px] md:text-[10px] font-medium text-slate-500 mb-1 px-1 uppercase tracking-wider">{msg.sender}</span>
-                  <div className={`px-3 py-2 md:px-4 md:py-2 opacity-90 rounded-2xl max-w-[85%] ${
-                    isMe 
-                      ? "bg-indigo-600 text-slate-100 rounded-tr-sm shadow-md shadow-indigo-900/20" 
-                      : "bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700 shadow-sm"
-                  }`}>
-                    <p className="text-[13px] md:text-[15px] leading-relaxed break-words">{msg.message}</p>
+                <div key={idx} className={`flex gap-2 animate-pop ${isMe ? "justify-end" : "justify-start"}`}>
+                  {!isMe && <Avatar name={msg.sender} size={22} className="mt-0.5" />}
+                  <div className={`flex flex-col min-w-0 max-w-[85%] ${isMe ? "items-end" : "items-start"}`}>
+                    {!isMe && <span className="text-[11px] font-bold text-ink/60 mb-0.5 px-1">{msg.sender}</span>}
+                    {isBig ? (
+                      <p className="text-3xl leading-tight">{msg.message}</p>
+                    ) : (
+                      <p className={`chunk-sm rounded-2xl px-3 py-1.5 text-sm leading-relaxed wrap-break-word ${
+                        isMe ? "bg-candy-blue text-white rounded-br-sm" : "bg-white text-ink rounded-bl-sm"
+                      }`}>
+                        {msg.message}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -304,26 +329,34 @@ function RoomContent() {
             <div ref={chatEndRef} />
           </div>
 
-          <div className="p-3 md:p-4 bg-slate-950 border-t border-slate-800">
+          <div className="p-3 border-t-[3px] border-ink bg-cream-2 flex flex-col gap-2">
+            <div className="flex gap-2 flex-wrap" aria-label="Quick reactions">
+              {REACTIONS.map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => sendReaction(r)}
+                  className="btn-toy bg-white px-2.5 py-0.5 text-lg font-bold leading-snug"
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
                 type="text"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder="Type a message..."
-                className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-slate-200 placeholder-slate-500 shadow-inner"
+                className="flex-1 min-w-0 chunk-sm bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-candy-pink"
               />
-              <button 
-                type="submit"
-                disabled={!messageInput.trim()}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl p-2 md:p-3 flex items-center justify-center transition-colors shadow-sm"
-              >
+              <ToyButton type="submit" color="pink" disabled={!messageInput.trim()} aria-label="Send message" className="px-3 text-white">
                 <Send size={18} />
-              </button>
+              </ToyButton>
             </form>
           </div>
         </div>
-      </div>
+      </aside>
       )}
     </div>
   );
