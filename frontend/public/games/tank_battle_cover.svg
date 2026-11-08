@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240">
+  <rect width="400" height="240" fill="#f4dca8"/>
+  <path d="M40 0V240M80 0V240M120 0V240M160 0V240M200 0V240M240 0V240M280 0V240M320 0V240M360 0V240M0 40H400M0 80H400M0 120H400M0 160H400M0 200H400" stroke="#2b2240" stroke-opacity="0.08" stroke-width="2"/>
+  <g fill="#8d86a3" stroke="#2b2240" stroke-width="3">
+    <rect x="161" y="41" width="38" height="38" rx="4"/>
+    <rect x="161" y="161" width="38" height="38" rx="4"/>
+    <rect x="281" y="161" width="38" height="38" rx="4"/>
+    <rect x="41" y="41" width="38" height="38" rx="4"/>
+  </g>
+  <g fill="#d6d1e3">
+    <rect x="167" y="47" width="26" height="6" rx="2"/>
+    <rect x="167" y="167" width="26" height="6" rx="2"/>
+    <rect x="287" y="167" width="26" height="6" rx="2"/>
+    <rect x="47" y="47" width="26" height="6" rx="2"/>
+  </g>
+  <rect x="202" y="102" width="36" height="36" rx="3" fill="#c98a4b" stroke="#2b2240" stroke-width="3"/>
+  <path d="M208 108L232 132M232 108L208 132" stroke="#8a5a2b" stroke-width="4" stroke-linecap="round"/>
+  <g transform="translate(90 120) scale(1.7)">
+    <rect x="-15" y="-15" width="30" height="7" rx="2" fill="#2b2240"/>
+    <rect x="-15" y="8" width="30" height="7" rx="2" fill="#2b2240"/>
+    <rect x="-12" y="-10" width="24" height="20" rx="4" fill="#4d96ff" stroke="#2b2240" stroke-width="2"/>
+    <rect x="0" y="-3" width="21" height="6" rx="2" fill="#2b2240"/>
+    <circle r="7" fill="#4d96ff" stroke="#2b2240" stroke-width="2"/>
+  </g>
+  <g transform="translate(330 120) rotate(180) scale(1.7)">
+    <rect x="-15" y="-15" width="30" height="7" rx="2" fill="#2b2240"/>
+    <rect x="-15" y="8" width="30" height="7" rx="2" fill="#2b2240"/>
+    <rect x="-12" y="-10" width="24" height="20" rx="4" fill="#ff6fa8" stroke="#2b2240" stroke-width="2"/>
+    <rect x="0" y="-3" width="21" height="6" rx="2" fill="#2b2240"/>
+    <circle r="7" fill="#ff6fa8" stroke="#2b2240" stroke-width="2"/>
+  </g>
+  <circle cx="160" cy="120" r="7" fill="#2b2240" stroke="#4d96ff" stroke-width="3"/>
+  <text x="220" y="122" font-size="48" text-anchor="middle" dominant-baseline="central">💥</text>
+</svg>
