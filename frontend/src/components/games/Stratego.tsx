@@ -1,39 +1,34 @@
 "use client";
-import { useState, useCallback } from "react";
-import { Loader2, Shuffle, CheckCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import PlayerCards from "@/components/ui/PlayerCards";
+import TurnBanner from "@/components/ui/TurnBanner";
+import ResultOverlay from "@/components/ui/ResultOverlay";
+import ToyButton from "@/components/ui/ToyButton";
+import StrategoToken, { RANK_LABELS } from "./StrategoToken";
+import { nameForSymbol, outcomeFor, resultTitle, scoreLine } from "@/lib/players";
+import { play } from "@/lib/sound";
+import { useOnChange } from "@/lib/useOnChange";
 import type { GameProps } from "@/lib/types";
 
 const ROWS = 8, COLS = 8;
 
-// Piece display config: rank -> { name, short, color }
-const RANK_DISPLAY: Record<number, { name: string; short: string; bg: string; text: string }> = {
-  "-1": { name: "?",          short: "?",   bg: "bg-slate-700",   text: "text-slate-400" },
-   0:  { name: "Flag",        short: "🚩",  bg: "bg-yellow-600",  text: "text-yellow-100" },
-  11:  { name: "Bomb",        short: "💣",  bg: "bg-zinc-700",    text: "text-zinc-200" },
-   1:  { name: "Spy",         short: "Spy", bg: "bg-purple-700",  text: "text-purple-100" },
-   2:  { name: "Scout",       short: "Sct", bg: "bg-sky-700",     text: "text-sky-100" },
-   3:  { name: "Miner",       short: "Min", bg: "bg-teal-700",    text: "text-teal-100" },
-   4:  { name: "Sergeant",    short: "Sgt", bg: "bg-blue-700",    text: "text-blue-100" },
-   5:  { name: "Lieutenant",  short: "Lt",  bg: "bg-blue-600",    text: "text-blue-100" },
-   6:  { name: "Captain",     short: "Cap", bg: "bg-indigo-600",  text: "text-indigo-100" },
-   7:  { name: "Major",       short: "Maj", bg: "bg-indigo-700",  text: "text-indigo-100" },
-   8:  { name: "Colonel",     short: "Col", bg: "bg-violet-700",  text: "text-violet-100" },
-   9:  { name: "General",     short: "Gen", bg: "bg-fuchsia-700", text: "text-fuchsia-100" },
-  10:  { name: "Marshal",     short: "Mar", bg: "bg-amber-600",   text: "text-amber-100" },
-} as any;
+type Sym = "A" | "B";
+interface Piece { owner: Sym; rank: number; revealed: boolean }
+type Board = (Piece | null)[][];
+type RankInfo = Record<string, { count: number }>;
+interface Combat { attacker_sym: Sym; attacker_rank: number; defender_rank: number; result: string }
 
 const PIECE_ORDER = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 11, 0];
+const CLASH_MS = 2500;
 
-function rankDisplay(rank: number, owner: string, mySymbol: string) {
-  if (owner !== mySymbol && rank === -1) return RANK_DISPLAY[-1];
-  return RANK_DISPLAY[rank] ?? { name: String(rank), short: String(rank), bg: "bg-slate-500", text: "text-white" };
-}
+const opp = (s: string): Sym => (s === "A" ? "B" : "A");
 
 function isLake(r: number, c: number, lakes: number[][]): boolean {
   return lakes.some(([lr, lc]) => lr === r && lc === c);
 }
 
-function getValidMoves(board: any[][], r: number, c: number, mySymbol: string, lakes: number[][]): { moves: number[][], attacks: number[][] } {
+function getValidMoves(board: Board, r: number, c: number, mySymbol: string, lakes: number[][]): { moves: number[][], attacks: number[][] } {
   const cell = board[r]?.[c];
   if (!cell || cell.owner !== mySymbol) return { moves: [], attacks: [] };
   const isScout = cell.rank === 2;
@@ -53,13 +48,39 @@ function getValidMoves(board: any[][], r: number, c: number, mySymbol: string, l
   return { moves, attacks };
 }
 
+/**
+ * Captured/lost trays from the board alone. My lost pieces are exact. An enemy rank counts as captured only when
+ * more of it are missing than hidden enemy pieces could account for; the rest stay unknown (never guessed).
+ */
+export function deriveTrays(board: Board, rankInfo: RankInfo, viewer: string) {
+  const mine: Record<number, number> = {}, enemyKnown: Record<number, number> = {};
+  let enemyHidden = 0, enemyOnBoard = 0, total = 0;
+  for (const row of board) for (const cell of row) {
+    if (!cell) continue;
+    if (cell.owner === viewer) mine[cell.rank] = (mine[cell.rank] ?? 0) + 1;
+    else {
+      enemyOnBoard++;
+      if (cell.rank === -1) enemyHidden++;
+      else enemyKnown[cell.rank] = (enemyKnown[cell.rank] ?? 0) + 1;
+    }
+  }
+  const lost: number[] = [], captured: number[] = [];
+  for (const rank of PIECE_ORDER) {
+    const count = rankInfo[String(rank)]?.count ?? 0;
+    total += count;
+    for (let i = 0; i < count - (mine[rank] ?? 0); i++) lost.push(rank);
+    for (let i = 0; i < count - (enemyKnown[rank] ?? 0) - enemyHidden; i++) captured.push(rank);
+  }
+  return { lost, captured, unknownCaptured: Math.max(0, total - enemyOnBoard - captured.length) };
+}
+
 const RESULT_MSG: Record<string, string> = {
   attacker: "Attacker wins!",
   defender: "Defender wins!",
   both: "Both eliminated!",
 };
 
-export default function Stratego({ ws, gameState, mySymbol, handleRestart }: GameProps) {
+export default function Stratego({ ws, gameState, mySymbol, handleRestart, matchScore }: GameProps) {
   const [selectedInventoryRank, setSelectedInventoryRank] = useState<number | null>(null);
   const [selectedPiece, setSelectedPiece] = useState<[number, number] | null>(null);
   const [validMoves, setValidMoves]   = useState<number[][]>([]);
@@ -67,76 +88,89 @@ export default function Stratego({ ws, gameState, mySymbol, handleRestart }: Gam
   const [dismissedCombat, setDismissedCombat] = useState<string | null>(null);
 
   const phase: string      = gameState?.phase      ?? "setup";
-  const board: any[][]     = gameState?.board       ?? [];
+  const board: Board       = gameState?.board       ?? [];
   const turn: string       = gameState?.turn        ?? "A";
   const winner: string|null  = gameState?.winner    ?? null;
-  const setupDone: any     = gameState?.setup_done  ?? {};
-  const remaining: any     = gameState?.remaining   ?? {};
-  const lastCombat: any    = gameState?.last_combat ?? null;
+  const setupDone: Record<string, boolean> = gameState?.setup_done ?? {};
+  const remaining: Record<string, number>  = gameState?.remaining  ?? {};
+  const lastCombat: Combat | null = gameState?.last_combat ?? null;
   const lakes: number[][]  = gameState?.lakes       ?? [];
+  const rankInfo: RankInfo = gameState?.rank_info   ?? {};
   const totalPieces: number  = gameState?.total_pieces ?? 20;
   const placedCount: number  = gameState?.placed_count ?? 0;
 
-  const isMyTurn  = turn === mySymbol && phase === "playing";
+  // Spectators get player A's view from the server, so colour the board from A's side
+  const viewer: string = mySymbol ?? gameState?.my_symbol ?? "A";
+  const over = phase === "finished";
+  const isMyTurn  = !!mySymbol && turn === mySymbol && phase === "playing";
   const mySetupDone = setupDone[mySymbol ?? ""] ?? false;
+  const canSetUp = !!mySymbol && phase === "setup" && !mySetupDone;
 
   const myRows    = mySymbol === "A" ? [5,6,7] : [0,1,2];
-  const oppRows   = mySymbol === "A" ? [0,1,2] : [5,6,7];
 
   const combatKey = lastCombat ? JSON.stringify(lastCombat) : null;
-  const showCombat = lastCombat && combatKey !== dismissedCombat;
+  const showCombat = !!lastCombat && combatKey !== dismissedCombat;
 
-  // ── setup handlers ────────────────────────────────────────────────────────
-  const handleBoardClick = useCallback((r: number, c: number) => {
-    if (phase === "setup" && !mySetupDone) {
-      const cell = board[r]?.[c];
-      if (cell && cell.owner === mySymbol) {
-        if (selectedInventoryRank !== null) {
-          ws.send(JSON.stringify({ action: "move", action_type: "remove", row: r, col: c }));
-          ws.send(JSON.stringify({ action: "move", action_type: "place", rank: selectedInventoryRank, row: r, col: c }));
-        } else {
-          ws.send(JSON.stringify({ action: "move", action_type: "remove", row: r, col: c }));
-        }
-      } else if (selectedInventoryRank !== null && !isLake(r, c, lakes) && myRows.includes(r)) {
-        ws.send(JSON.stringify({ action: "move", action_type: "place", rank: selectedInventoryRank, row: r, col: c }));
-        const rem = parseInt(remaining[String(selectedInventoryRank)] ?? "0") - 1;
-        if (rem <= 0) setSelectedInventoryRank(null);
-      }
-    } else if (phase === "playing" && isMyTurn) {
-      const cell = board[r]?.[c];
-      if (selectedPiece) {
-        const [sr, sc] = selectedPiece;
-        const isMove = validMoves.some(([mr, mc]) => mr === r && mc === c);
-        const isAtk  = validAttacks.some(([ar, ac]) => ar === r && ac === c);
-        if (isMove || isAtk) {
-          ws.send(JSON.stringify({ action: "move", action_type: "move", from_row: sr, from_col: sc, to_row: r, to_col: c }));
-          setSelectedPiece(null); setValidMoves([]); setValidAttacks([]);
-        } else if (cell && cell.owner === mySymbol) {
-          const { moves, attacks } = getValidMoves(board, r, c, mySymbol!, lakes);
-          setSelectedPiece([r, c]); setValidMoves(moves); setValidAttacks(attacks);
-        } else {
-          setSelectedPiece(null); setValidMoves([]); setValidAttacks([]);
-        }
-      } else {
-        if (cell && cell.owner === mySymbol) {
-          const { moves, attacks } = getValidMoves(board, r, c, mySymbol!, lakes);
-          setSelectedPiece([r, c]); setValidMoves(moves); setValidAttacks(attacks);
-        }
-      }
-    }
-  }, [phase, mySetupDone, board, mySymbol, selectedInventoryRank, selectedPiece, validMoves, validAttacks, lakes, myRows, remaining, isMyTurn, ws]);
+  const clearSelection = () => { setSelectedPiece(null); setValidMoves([]); setValidAttacks([]); };
+
+  useOnChange(isMyTurn, now => { clearSelection(); if (now) play("turn"); });
+  useOnChange(placedCount, (n, p) => { if (n > p) play("place"); });
+  useOnChange(combatKey, k => { if (k) play("hit"); });
+  useOnChange(phase, () => { clearSelection(); setSelectedInventoryRank(null); });
+
+  // The clash card hides itself after a moment
+  useEffect(() => {
+    if (!combatKey) return;
+    const t = setTimeout(() => setDismissedCombat(combatKey), CLASH_MS);
+    return () => clearTimeout(t);
+  }, [combatKey]);
 
   if (!gameState) return (
     <div className="flex-1 flex items-center justify-center">
-      <Loader2 className="animate-spin text-red-400" size={40}/>
+      <Loader2 className="animate-spin text-candy-red" size={48}/>
     </div>
   );
 
-  const CELL = 46;
+  const send = (msg: Record<string, unknown>) => ws.send(JSON.stringify({ action: "move", ...msg }));
+
+  const handleBoardClick = (r: number, c: number) => {
+    if (canSetUp) {
+      const cell = board[r]?.[c];
+      if (cell && cell.owner === mySymbol) {
+        send({ action_type: "remove", row: r, col: c });
+        if (selectedInventoryRank !== null) send({ action_type: "place", rank: selectedInventoryRank, row: r, col: c });
+      } else if (selectedInventoryRank !== null && !isLake(r, c, lakes) && myRows.includes(r)) {
+        send({ action_type: "place", rank: selectedInventoryRank, row: r, col: c });
+        const rem = (remaining[String(selectedInventoryRank)] ?? 0) - 1;
+        if (rem <= 0) setSelectedInventoryRank(null);
+      }
+    } else if (isMyTurn) {
+      const cell = board[r]?.[c];
+      const isMove = validMoves.some(([mr, mc]) => mr === r && mc === c);
+      const isAtk  = validAttacks.some(([ar, ac]) => ar === r && ac === c);
+      if (selectedPiece && (isMove || isAtk)) {
+        const [sr, sc] = selectedPiece;
+        send({ action_type: "move", from_row: sr, from_col: sc, to_row: r, to_col: c });
+        clearSelection();
+      } else if (cell && cell.owner === mySymbol) {
+        const { moves, attacks } = getValidMoves(board, r, c, mySymbol, lakes);
+        setSelectedPiece([r, c]); setValidMoves(moves); setValidAttacks(attacks);
+      } else {
+        clearSelection();
+      }
+    }
+  };
+
+  const nameOf = (sym: string) => nameForSymbol(gameState, sym) ?? `Player ${sym}`;
+  const outcome = outcomeFor(winner, false, mySymbol);
+  const title = resultTitle(gameState, winner, false, mySymbol);
+  const piecesOf = (sym: string) => board.reduce((n, row) => n + row.filter(p => p?.owner === sym).length, 0);
+  const subtitle = (sym: string) => phase === "setup"
+    ? (setupDone[sym] ? "Ready ✅" : "Setting up…")
+    : `${piecesOf(sym)} pieces left`;
 
   const renderBoard = () => (
-    <div className="relative border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl"
-      style={{ width: COLS*CELL, height: ROWS*CELL }}>
+    <div className="chunk overflow-hidden grid grid-cols-8 grid-rows-8 w-[min(94vw,28rem)] aspect-square bg-candy-green">
       {Array.from({length: ROWS}, (_, r) =>
         Array.from({length: COLS}, (_, c) => {
           const cell = board[r]?.[c];
@@ -144,41 +178,28 @@ export default function Stratego({ ws, gameState, mySymbol, handleRestart }: Gam
           const isSelected = selectedPiece?.[0] === r && selectedPiece?.[1] === c;
           const isValidMove = validMoves.some(([mr,mc]) => mr === r && mc === c);
           const isValidAtk  = validAttacks.some(([ar,ac]) => ar === r && ac === c);
-          const isMySetupRow = phase === "setup" && myRows.includes(r);
-          const isOppSetupRow = phase === "setup" && oppRows.includes(r);
-          const checkerDark  = (r + c) % 2 === 1;
-
-          let bg = checkerDark ? "bg-slate-800" : "bg-slate-900";
-          if (lake) bg = "bg-blue-950";
-          if (isMySetupRow && phase === "setup") bg = checkerDark ? "bg-slate-700" : "bg-slate-750";
-          if (isValidMove) bg = "bg-green-900/70";
-          if (isValidAtk)  bg = "bg-rose-900/70";
-          if (isSelected)  bg = "bg-amber-800/80";
-
-          const rd = cell ? rankDisplay(cell.rank, cell.owner, mySymbol ?? "") : null;
+          const light = (r + c) % 2 === 0;
+          const setupRow = canSetUp && myRows.includes(r);
+          const bg = lake ? "bg-candy-blue/70"
+            : setupRow ? (light ? "bg-candy-yellow/50" : "bg-candy-yellow/70")
+            : (light ? "bg-candy-green/50" : "bg-candy-green/70");
+          const clickable = !lake && (canSetUp || isMyTurn);
 
           return (
             <div key={`${r}-${c}`}
-              onClick={() => !lake && handleBoardClick(r, c)}
-              className={`absolute border border-slate-700/40 flex items-center justify-center select-none transition-colors
-                ${lake ? "cursor-default" : "cursor-pointer hover:brightness-125"}
-                ${bg}`}
-              style={{ left: c*CELL, top: r*CELL, width: CELL, height: CELL }}>
-              {/* Cell number (top-left corner)*/}
-              {!cell && !lake && <span className="absolute top-0.5 left-1 text-[7px] text-slate-600 leading-none">{(ROWS-r)*10+c}</span>}
-              {lake && <span className="text-blue-800 text-lg">〰</span>}
-              {isValidMove && !cell && <div className="w-3 h-3 rounded-full bg-green-400/60 border border-green-300/40"/>}
-              {isValidAtk  && !cell && <div className="w-3 h-3 rounded-full bg-rose-400/60 border border-rose-300/40"/>}
-              {cell && rd && (
-                <div className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center shadow-md
-                  ${cell.owner === mySymbol ? rd.bg : (cell.rank === -1 ? "bg-rose-900" : "bg-rose-800")}
-                  ${isSelected ? "ring-2 ring-amber-300" : ""}
-                  ${isValidAtk ? "ring-2 ring-rose-400" : ""}`}>
-                  <span className="text-[11px] font-black text-white leading-none">{cell.owner === mySymbol ? rd.short : (cell.rank === -1 ? "?" : rd.short)}</span>
-                  {cell.revealed && cell.owner !== mySymbol && cell.rank !== -1 && (
-                    <span className="text-[7px] text-red-200 leading-none">revealed</span>
-                  )}
-                </div>
+              onClick={() => clickable && handleBoardClick(r, c)}
+              className={`relative flex items-center justify-center select-none bg-cream ${clickable ? "cursor-pointer" : "cursor-default"}`}>
+              <div className={`absolute inset-0 ${bg}`}/>
+              {lake && <span className="relative text-lg sm:text-2xl">🌊</span>}
+              {isValidMove && !cell && <span className="relative w-[22%] aspect-square rounded-full bg-ink/70"/>}
+              {cell && (
+                <StrategoToken owner={cell.owner} rank={cell.rank} mine={cell.owner === viewer}
+                  revealed={cell.revealed} selected={isSelected}/>
+              )}
+              {isValidAtk && (
+                <span className="absolute inset-0.5 rounded-lg ring-4 ring-candy-red pointer-events-none">
+                  <span className="absolute -top-1 -right-1 text-xs sm:text-sm leading-none">⚔️</span>
+                </span>
               )}
             </div>
           );
@@ -188,171 +209,131 @@ export default function Stratego({ ws, gameState, mySymbol, handleRestart }: Gam
   );
 
   const renderInventory = () => (
-    <div className="flex flex-col gap-2 w-full md:w-36 md:shrink-0">
-      <div className="flex items-center justify-between md:block">
-        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Pieces to place</p>
-        <p className="text-[10px] text-slate-600">{placedCount}/{totalPieces} placed</p>
+    <div className="chunk bg-white p-3 flex flex-col gap-3 w-[min(94vw,28rem)] md:w-44 md:shrink-0">
+      <div className="flex items-center justify-between font-bold text-ink text-sm">
+        <span>🎒 Your pieces</span>
+        <span className="chunk-sm rounded-lg! bg-candy-yellow px-2 text-xs">{placedCount}/{totalPieces}</span>
       </div>
-      {/* Horizontal scroll on mobile, vertical list on desktop */}
-      <div className="flex flex-row flex-wrap gap-1.5 md:flex-col md:gap-1.5">
+      <div className="grid grid-cols-4 md:grid-cols-2 gap-2">
         {PIECE_ORDER.map(rank => {
-          const count = parseInt(remaining[String(rank)] ?? "0");
-          if (count <= 0) return null;
-          const rd = RANK_DISPLAY[rank];
+          const count = remaining[String(rank)] ?? 0;
           const isSelected = selectedInventoryRank === rank;
           return (
-            <button key={rank} onClick={() => setSelectedInventoryRank(isSelected ? null : rank)}
-              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all
-                ${isSelected ? "border-amber-400 bg-amber-900/40" : "border-slate-700 bg-slate-800/60 hover:border-slate-500"}`}>
-              <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${rd.bg}`}>
-                <span className="text-[9px] font-black text-white">{rd.short}</span>
-              </div>
-              {/* Hide name on mobile to keep button compact */}
-              <div className="hidden md:flex flex-1 min-w-0">
-                <p className="text-[9px] font-semibold text-slate-200 truncate">{rd.name}</p>
-              </div>
-              <span className="text-[10px] text-slate-400 font-bold shrink-0">×{count}</span>
+            <button key={rank} type="button" disabled={count <= 0}
+              onClick={() => { play("click"); setSelectedInventoryRank(isSelected ? null : rank); }}
+              title={RANK_LABELS[rank]?.name}
+              className="relative flex flex-col items-center gap-0.5 disabled:opacity-35 disabled:cursor-not-allowed">
+              <StrategoToken owner={(mySymbol ?? "A") as Sym} rank={rank} mine revealed={false} small selected={isSelected}/>
+              <span className="text-[10px] font-bold text-ink leading-none">×{count}</span>
             </button>
           );
         })}
       </div>
-      <div className="flex flex-row flex-wrap gap-1.5 md:flex-col mt-1">
-        <button onClick={() => ws.send(JSON.stringify({ action: "move", action_type: "auto_fill" }))}
-          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-all">
-          <Shuffle size={12}/> Auto-fill
-        </button>
-        {placedCount >= totalPieces && (
-          <button onClick={() => ws.send(JSON.stringify({ action: "move", action_type: "ready" }))}
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-green-500/60 bg-green-900/40 hover:bg-green-800/60 text-green-300 text-xs font-bold transition-all">
-            <CheckCircle size={12}/> I'm Ready!
-          </button>
-        )}
+      <p className="text-xs text-ink/70">Pick a piece, then tap a yellow square. Tap a placed piece to pick it up.</p>
+      <div className="flex flex-wrap gap-2">
+        <ToyButton color="blue" size="sm" disabled={placedCount >= totalPieces} onClick={() => send({ action_type: "auto_fill" })}>
+          🎲 Auto-fill
+        </ToyButton>
+        <ToyButton color="green" size="sm" disabled={placedCount < totalPieces} onClick={() => send({ action_type: "ready" })}>
+          Ready ✅
+        </ToyButton>
       </div>
     </div>
   );
 
+  const renderTrays = () => {
+    const { lost, captured, unknownCaptured } = deriveTrays(board, rankInfo, viewer);
+    const enemy = opp(viewer);
+    const row = (label: string, ranks: number[], owner: Sym, mine: boolean, unknown = 0) => (
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-bold text-ink">{label}</span>
+        <div className="flex flex-wrap gap-1 min-h-7">
+          {ranks.length === 0 && unknown === 0 && <span className="text-xs text-ink/50">None yet</span>}
+          {ranks.map((rank, i) => <StrategoToken key={`${rank}-${i}`} owner={owner} rank={rank} mine={mine} revealed small/>)}
+          {Array.from({ length: unknown }, (_, i) => <StrategoToken key={`u${i}`} owner={owner} rank={-1} mine={mine} revealed={false} small/>)}
+        </div>
+      </div>
+    );
+    return (
+      <div className="chunk bg-white p-3 flex flex-col gap-3 w-[min(94vw,28rem)] md:w-44 md:shrink-0">
+        {row("🏆 Captured", captured, enemy, false, unknownCaptured)}
+        {row("💔 Lost", lost, viewer as Sym, true)}
+        <div className="border-t-2 border-ink/10 pt-2 text-[11px] text-ink/70 flex flex-col gap-0.5">
+          <span>🕵️ Spy beats 👑 Marshal</span>
+          <span>⛏️ Miner defuses 💣 Bomb</span>
+          <span>🏃 Scout runs far</span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderClash = () => {
+    if (!showCombat || !lastCombat) return null;
+    const attacker = lastCombat.attacker_sym;
+    const defender = opp(attacker);
+    const side = (owner: Sym, rank: number) => (
+      <div className="flex flex-col items-center gap-1 w-16">
+        <div className="w-14 h-14 flex items-center justify-center">
+          <StrategoToken owner={owner} rank={rank} mine={owner === viewer} revealed/>
+        </div>
+        <span className="text-[11px] font-bold text-ink truncate max-w-full">{RANK_LABELS[rank]?.name}</span>
+      </div>
+    );
+    return (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center pointer-events-none p-4">
+        <button type="button" onClick={() => setDismissedCombat(combatKey)}
+          className="pointer-events-auto chunk bg-white animate-pop px-5 py-4 flex flex-col items-center gap-2"
+          aria-label="Dismiss battle result">
+          <span className="text-xs font-bold text-ink/60 uppercase tracking-widest">Clash!</span>
+          <div className="flex items-center gap-3">
+            {side(attacker, lastCombat.attacker_rank)}
+            <span className="text-3xl">⚔️</span>
+            {side(defender, lastCombat.defender_rank)}
+          </div>
+          <span className="font-black text-ink">{RESULT_MSG[lastCombat.result] ?? ""}</span>
+        </button>
+      </div>
+    );
+  };
+
   return (
-    <div className="flex-1 flex flex-col items-center gap-3 p-3 overflow-auto">
+    <div className="flex-1 flex flex-col items-center gap-4 p-2 sm:p-4 relative z-10 w-full overflow-y-auto overflow-x-hidden">
+      <PlayerCards
+        gameState={gameState}
+        mySymbol={mySymbol}
+        players={[{ symbol: "A", subtitle: subtitle("A") }, { symbol: "B", subtitle: subtitle("B") }]}
+        activeSymbol={phase === "playing" ? turn : null}
+        matchScore={matchScore}
+      />
 
-      {/* Header */}
-      <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-700 rounded-2xl px-4 py-2 text-sm flex-wrap justify-center">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-sm bg-blue-500 border border-blue-300"/>
-          <span className={`font-bold ${mySymbol==="A"?"text-blue-300":"text-slate-300"}`}>
-            Player A {mySymbol==="A"?"(You)":""}
-          </span>
-          {setupDone.A && <span className="text-[10px] border border-green-500/40 text-green-400 px-1 py-0.5 rounded">Ready</span>}
-        </div>
-        <div className={`text-xs font-bold px-3 py-1 rounded-xl border
-          ${phase==="playing" ? (isMyTurn ? "bg-amber-500/20 border-amber-500/50 text-amber-300" : "bg-slate-800 border-slate-600 text-slate-500")
-                              : "bg-slate-800 border-slate-600 text-slate-500"}`}>
-          {phase==="setup" ? (mySetupDone ? "Waiting for opponent…" : `Setup — ${totalPieces - placedCount} pieces left`) :
-           phase==="playing" ? (isMyTurn ? "⚔️ Your turn!" : `${turn}'s turn`) : "Game over"}
-        </div>
-        <div className="flex items-center gap-2">
-          {setupDone.B && <span className="text-[10px] border border-green-500/40 text-green-400 px-1 py-0.5 rounded">Ready</span>}
-          <span className={`font-bold ${mySymbol==="B"?"text-rose-300":"text-slate-300"}`}>
-            Player B {mySymbol==="B"?"(You)":""}
-          </span>
-          <div className="w-4 h-4 rounded-sm bg-rose-600 border border-rose-300"/>
-        </div>
+      {over ? (
+        <TurnBanner tone={outcome === "lose" ? "bad" : "good"}>{title}</TurnBanner>
+      ) : phase === "setup" ? (
+        !mySymbol ? <TurnBanner tone="info">Armies are lining up…</TurnBanner>
+          : mySetupDone ? <TurnBanner tone="wait">Waiting for {nameOf(opp(mySymbol))} to get ready…</TurnBanner>
+            : <TurnBanner tone="mine">🪖 Set up your army! {totalPieces - placedCount} to place</TurnBanner>
+      ) : isMyTurn ? (
+        <TurnBanner tone="mine">⚔️ Your turn: pick a piece</TurnBanner>
+      ) : mySymbol ? (
+        <TurnBanner tone="wait">Waiting for {nameOf(turn)}…</TurnBanner>
+      ) : (
+        <TurnBanner tone="info">{nameOf(turn)}&apos;s turn</TurnBanner>
+      )}
+
+      <div className="flex flex-col md:flex-row gap-4 items-center md:items-start justify-center">
+        {renderBoard()}
+        {canSetUp ? renderInventory() : phase !== "setup" && renderTrays()}
       </div>
 
-      {/* Setup instructions */}
-      {phase === "setup" && !mySetupDone && (
-        <p className="text-xs text-slate-500 text-center">
-          Select a piece from the left, then click your highlighted zone to place it. Click a placed piece to pick it back up.
-        </p>
-      )}
-      {phase === "setup" && mySetupDone && (
-        <p className="text-xs text-green-400 text-center">✅ You're ready! Waiting for your opponent to finish setup…</p>
-      )}
+      {renderClash()}
 
-      {/* Combat result banner */}
-      {showCombat && (
-        <div className="bg-slate-900 border border-amber-500/50 rounded-2xl px-6 py-3 flex items-center gap-4 shadow-2xl">
-          <div className="flex flex-col items-center">
-            <div className={`w-10 h-10 rounded-xl ${(RANK_DISPLAY[lastCombat.attacker_rank] as any)?.bg ?? "bg-slate-600"} flex items-center justify-center`}>
-              <span className="text-xs font-black text-white">{(RANK_DISPLAY[lastCombat.attacker_rank] as any)?.short}</span>
-            </div>
-            <span className="text-[9px] text-slate-400 mt-0.5">{lastCombat.attacker_sym}</span>
-          </div>
-          <div className="text-center">
-            <p className="text-amber-300 font-black text-sm">⚔️ {RESULT_MSG[lastCombat.result]}</p>
-            <p className="text-[10px] text-slate-500">
-              {(RANK_DISPLAY[lastCombat.attacker_rank] as any)?.name} vs {(RANK_DISPLAY[lastCombat.defender_rank] as any)?.name}
-            </p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className={`w-10 h-10 rounded-xl ${(RANK_DISPLAY[lastCombat.defender_rank] as any)?.bg ?? "bg-slate-600"} flex items-center justify-center`}>
-              <span className="text-xs font-black text-white">{(RANK_DISPLAY[lastCombat.defender_rank] as any)?.short}</span>
-            </div>
-            <span className="text-[9px] text-slate-400 mt-0.5">{lastCombat.attacker_sym === "A" ? "B" : "A"}</span>
-          </div>
-          <button onClick={() => setDismissedCombat(combatKey)} className="ml-2 text-slate-500 hover:text-slate-300 text-xs underline">dismiss</button>
-        </div>
-      )}
-
-      {/* Main layout — column on mobile (board first, inventory below), row on desktop */}
-      <div className="flex flex-col-reverse md:flex-row gap-4 items-start flex-wrap justify-center">
-
-        {/* Left: inventory (setup only) / legend (playing) */}
-        {phase === "setup" && !mySetupDone ? renderInventory() : (
-          <div className="flex flex-col gap-2 w-full md:w-36 md:shrink-0 text-[9px] text-slate-500">
-            <p className="font-semibold text-slate-400 text-[10px] uppercase tracking-widest">Piece Ranks</p>
-            {/* Horizontal wrap on mobile (icon only), vertical list on desktop */}
-            <div className="flex flex-row flex-wrap gap-1.5 md:flex-col md:gap-1.5">
-              {[10,9,8,7,6,5,4,3,2,1,11,0].map(rank => {
-                const rd = RANK_DISPLAY[rank] as any;
-                return (
-                  <div key={rank} className="flex items-center gap-1.5" title={rd.name}>
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${rd.bg}`}>
-                      <span className="text-[8px] font-black text-white">{rd.short}</span>
-                    </div>
-                    {/* Show name only on desktop */}
-                    <span className="hidden md:inline text-slate-400">{rd.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex flex-row flex-wrap gap-x-3 gap-y-0.5 md:flex-col md:gap-0.5 border-t border-slate-800 pt-1 mt-1">
-              <p className="text-slate-600">💡 Spy beats Marshal</p>
-              <p className="text-slate-600">💡 Miner defuses Bomb</p>
-              <p className="text-slate-600">💡 Scout moves far</p>
-            </div>
-          </div>
-        )}
-
-        {/* Board */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="overflow-auto max-w-full">{renderBoard()}</div>
-          <div className="flex gap-4 text-xs text-slate-600">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-800 inline-block"/>Move</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-rose-800 inline-block"/>Attack</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-950 inline-block"/>Lake</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Win overlay */}
-      {phase === "finished" && (
-        <div className="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-50">
-          <div className={`bg-slate-900 rounded-3xl p-8 flex flex-col items-center gap-4 shadow-2xl border
-            ${winner===mySymbol ? "border-amber-500/50 shadow-amber-500/10" : "border-slate-600"}`}>
-            <p className="text-5xl">{winner===mySymbol ? "🏆" : "😔"}</p>
-            <h2 className={`text-3xl font-black ${winner===mySymbol ? "text-amber-400" : "text-slate-400"}`}>
-              {winner===mySymbol ? "Victory!" : `Player ${winner} Wins!`}
-            </h2>
-            <p className="text-slate-400 text-sm">
-              {winner===mySymbol ? "You captured the enemy flag!" : "Your flag was captured!"}
-            </p>
-            <button onClick={handleRestart} className="px-6 py-2.5 bg-red-700 hover:bg-red-600 rounded-xl text-white font-bold transition-all">
-              Play Again
-            </button>
-          </div>
-        </div>
-      )}
+      <ResultOverlay
+        open={over}
+        outcome={outcome}
+        title={title}
+        subtitle={scoreLine(matchScore, "A", "B")}
+        onPlayAgain={handleRestart}
+      />
     </div>
   );
 }
