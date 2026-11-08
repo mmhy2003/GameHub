@@ -15,6 +15,12 @@ const ACCENT_BG: Record<Accent, string> = {
 };
 
 export default function GameCard({ game, actionLabel, onPlay }: GameCardProps) {
+  const { minPlayers, maxPlayers } = game;
+  const isRange = minPlayers !== maxPlayers;
+  const playersLabel = isRange
+    ? `${minPlayers}–${maxPlayers} players`
+    : `${minPlayers} ${minPlayers === 1 ? "player" : "players"}`;
+  const playersAria = isRange ? `${minPlayers} to ${maxPlayers} players` : playersLabel;
   return (
     <div className="chunk bg-white p-3 flex flex-col gap-3 transition-transform hover:-translate-y-1">
       <div className={`relative h-36 rounded-xl border-2 border-ink overflow-hidden ${ACCENT_BG[game.accent]}`}>
@@ -33,6 +39,12 @@ export default function GameCard({ game, actionLabel, onPlay }: GameCardProps) {
         <div className="flex flex-wrap gap-2 text-xs font-bold text-ink">
           <span className="chunk-sm bg-cream-2 px-2 py-0.5">{game.category}</span>
           <span className="chunk-sm bg-cream px-2 py-0.5">⏱ {game.playTime}</span>
+          <span
+            aria-label={playersAria}
+            className={`chunk-sm px-2 py-0.5 ${isRange ? "bg-candy-yellow" : "bg-candy-green/25"}`}
+          >
+            <span aria-hidden>👥 </span>{playersLabel}
+          </span>
         </div>
       </div>
       <ToyButton color={game.accent} className="w-full" onClick={onPlay}>
