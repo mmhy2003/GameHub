@@ -11,3 +11,11 @@ export function outcomeFor(winner: string | null | undefined, isDraw: boolean, m
   if (!mySymbol) return "spectator";
   return winner === mySymbol ? "win" : "lose";
 }
+/** Result pop-up title: "You win! 🎉" / "You lose 😢" / "It's a draw!" for players, "{name} wins!" for spectators. */
+export function resultTitle(gs: WithSymbols, winner: string | null | undefined, isDraw: boolean, mySymbol: string | null): string {
+  const outcome = outcomeFor(winner, isDraw, mySymbol);
+  if (outcome === "draw") return "It's a draw!";
+  if (outcome === "win") return "You win! 🎉";
+  if (outcome === "lose") return "You lose 😢";
+  return `${nameForSymbol(gs, winner) ?? "Player " + winner} wins!`;
+}
