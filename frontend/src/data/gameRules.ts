@@ -117,6 +117,21 @@ export const GAME_RULES: Record<string, GameRule> = {
     tips: ["Aim for the edges — angles are harder to return."],
   },
 
+  "pong-4": {
+    title: "4-Player Pong",
+    icon: "🏓",
+    objective: "Keep the ball out of your goal and be the last player with hearts left.",
+    rules: [
+      "2 to 4 players each defend one side of a square court. Empty sides are walls.",
+      "Everyone presses Ready. The match starts when all seated players are ready, or when a ready player presses Start (at least 2 ready).",
+      "Bottom and top players move left/right (A/D or ←/→). Left and right players move up/down (W/S or ↑/↓).",
+      "When the ball goes past your paddle you lose a heart. Everyone starts with 3.",
+      "With no hearts left you are out and your side becomes a wall.",
+      "The last player with hearts wins.",
+    ],
+    tips: ["Hit the ball with the end of your paddle to send it off at a sharp angle."],
+  },
+
   "minesweeper": {
     title: "Co-op Minesweeper",
     icon: "💣",
