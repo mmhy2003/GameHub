@@ -2,6 +2,7 @@ from .tic_tac_toe import TicTacToeLogic
 from .battleships import BattleshipsLogic
 from .tetris import TetrisLogic
 from .ping_pong import PingPongLogic
+from .pong_four import PongFourLogic
 from .connect_four import ConnectFourLogic
 from .rock_paper_scissors import RockPaperScissorsLogic
 from .hangman import HangmanLogic
@@ -20,6 +21,8 @@ def get_game_logic(game_type: str):
         return TetrisLogic()
     elif game_type == "ping-pong":
         return PingPongLogic()
+    elif game_type == "pong-4":
+        return PongFourLogic()
     elif game_type == "connect-four":
         return ConnectFourLogic()
     elif game_type == "rock-paper-scissors":
