@@ -51,10 +51,32 @@ All params set on the homepage are **automatically forwarded** to the game room 
 ### Run locally
 
 ```bash
+cp env.sample .env
 docker compose up -d --build
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
+Then open [http://localhost](http://localhost) (or `http://localhost:<HTTP_PORT>` if you changed `HTTP_PORT` in `.env`).
+
+### Reverse proxy (Caddy)
+
+Caddy is the single entry point. It routes by path:
+
+- `/auth/*` and `/ws/*` go to the backend (FastAPI).
+- Everything else goes to the frontend (Next.js).
+
+Only Caddy publishes a host port (`HTTP_PORT`, default `80`). The backend and frontend are reachable only inside the Compose network. Any new backend route needs a matcher in `Caddyfile`.
+
+Caddy serves plain HTTP for any domain. For HTTPS, put a TLS proxy (Coolify, Cloudflare, ...) in front of it. The WebSocket then uses `wss:` automatically.
+
+> **Caveat:** Caddy trusts `X-Forwarded-Proto` only from proxies on a private network. If a proxy reaches the server over its public IP (e.g. Cloudflare directly), the SEO/OpenGraph URLs show `http://`. The app still works.
+
+### Development without Docker
+
+To run the frontend with `npm run dev` without Caddy, tell the browser where the backend is in `frontend/.env.local`:
+
+```bash
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+```
 
 ### Stop
 
@@ -90,6 +112,7 @@ GameHub/
 │   │   │   └── room/[id]/       # In-game room page
 │   │   └── components/games/    # Per-game React components
 │   └── Dockerfile
+├── Caddyfile                # Reverse proxy: routes /auth/* and /ws/* to the backend
 ├── docker-compose.yml
 └── README.md
 ```
