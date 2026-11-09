@@ -1,0 +1,18 @@
+{
+	servers {
+		# Keep X-Forwarded-Proto/Host from a TLS proxy on a private network (e.g. Coolify's Traefik)
+		trusted_proxies static private_ranges
+	}
+}
+
+# Plain HTTP for any Host; TLS is terminated by a proxy in front (GH-67)
+:80 {
+	# Backend routes. Any new backend route needs a matcher here.
+	@backend path /auth/* /ws/*
+	handle @backend {
+		reverse_proxy backend:8000
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

@@ -1,14 +1,22 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
     env_file:
       - .env
     environment:
-      - PORT=${BACKEND_PORT:-8000}
       - JWT_SECRET=${JWT_SECRET:-changeme-use-a-real-secret-in-production}
 
   frontend:
@@ -16,16 +24,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8000}
-        - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
         - NEXT_TELEMETRY_DISABLED=${NEXT_TELEMETRY_DISABLED:-1}
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8000}
-      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       - NEXT_TELEMETRY_DISABLED=${NEXT_TELEMETRY_DISABLED:-1}
     depends_on:
       - backend
