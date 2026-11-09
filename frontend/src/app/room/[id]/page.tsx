@@ -22,6 +22,7 @@ import ToyButton from "@/components/ui/ToyButton";
 import Avatar from "@/components/ui/Avatar";
 import { play } from "@/lib/sound";
 import { saveRoom } from "@/lib/roomMemory";
+import { getBackendWsUrl } from "@/lib/backendUrl";
 import type { MatchScore } from "@/lib/types";
 
 const REACTIONS = ["👏", "😂", "😱", "🔥", "GG"];
@@ -86,8 +87,7 @@ function RoomContent() {
     saveRoom(roomId);
 
     // Initialize WebSocket with JWT token
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-    const wsUrl = backendUrl.replace("http", "ws") + `/ws/${gameType}/${roomId}?token=${encodeURIComponent(token)}`;
+    const wsUrl = `${getBackendWsUrl()}/ws/${gameType}/${roomId}?token=${encodeURIComponent(token)}`;
     
     const socket = new WebSocket(wsUrl);
 

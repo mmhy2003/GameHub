@@ -5,6 +5,7 @@ import GameCard from "@/components/GameCard";
 import ToyButton from "@/components/ui/ToyButton";
 import { GAMES, GAME_CATEGORIES, type GameCategory } from "@/data/games";
 import { getSavedRoom, saveRoom, clearSavedRoom } from "@/lib/roomMemory";
+import { getBackendHttpUrl } from "@/lib/backendUrl";
 
 function HomeContent() {
   const router = useRouter();
@@ -41,11 +42,9 @@ function HomeContent() {
     if (paramRoom && inviteGame) router.push(embedParams(inviteGame, paramRoom));
   };
 
-  const BACKEND = (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000");
-
   const fetchToken = async (name: string): Promise<string | null> => {
     try {
-      const res = await fetch(`${BACKEND}/auth/token`, {
+      const res = await fetch(`${getBackendHttpUrl()}/auth/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: name }),
