@@ -7,13 +7,9 @@ RUN npm install
 
 COPY . .
 
-# Accept build-time variables from docker-compose (env_file / args)
-ARG NEXT_PUBLIC_BACKEND_URL
-ARG NEXT_PUBLIC_SITE_URL
+# Accept build-time variables from docker-compose (args)
 ARG NEXT_TELEMETRY_DISABLED=1
 
-ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
-ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED
 
 RUN npm run build
