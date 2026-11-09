@@ -21,6 +21,7 @@ import SoundToggle from "@/components/ui/SoundToggle";
 import ToyButton from "@/components/ui/ToyButton";
 import Avatar from "@/components/ui/Avatar";
 import { play } from "@/lib/sound";
+import { saveRoom } from "@/lib/roomMemory";
 import type { MatchScore } from "@/lib/types";
 
 const REACTIONS = ["👏", "😂", "😱", "🔥", "GG"];
@@ -80,6 +81,9 @@ function RoomContent() {
       router.push(lobbyUrl);
       return;
     }
+
+    // Remember this room for the lobby, so the next game opens here too (GH-59)
+    saveRoom(roomId);
 
     // Initialize WebSocket with JWT token
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
