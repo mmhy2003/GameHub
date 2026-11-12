@@ -6,6 +6,7 @@ import ToyButton from "@/components/ui/ToyButton";
 import { GAMES, GAME_CATEGORIES, type GameCategory } from "@/data/games";
 import { getSavedRoom, saveRoom, clearSavedRoom } from "@/lib/roomMemory";
 import { getBackendHttpUrl } from "@/lib/backendUrl";
+import { randomRoomCode } from "@/lib/share";
 
 function HomeContent() {
   const router = useRouter();
@@ -34,7 +35,7 @@ function HomeContent() {
   };
 
   const navigate = (game: string) => {
-    const rid = roomId.trim() || Math.random().toString(36).substring(2, 8);
+    const rid = roomId.trim() || randomRoomCode();
     router.push(embedParams(game, rid));
   };
 
