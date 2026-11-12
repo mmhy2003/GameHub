@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#8b5cf6">
+    <title>Offline | GameHub</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: #fff8ec;
+        color: #2b2240;
+        font-family: system-ui, sans-serif;
+      }
+      .card {
+        width: 100%;
+        max-width: 22rem;
+        padding: 1.5rem;
+        background: #fff;
+        border: 3px solid #2b2240;
+        border-radius: 1rem;
+        box-shadow: 4px 4px 0 0 #2b2240;
+        text-align: center;
+      }
+      .icon { border-radius: 1rem; }
+      .emoji { font-size: 2.5rem; line-height: 1; margin: 0.75rem 0 0.25rem; }
+      h1 { font-size: 1.5rem; margin: 0.5rem 0; }
+      p { margin: 0 0 1.25rem; line-height: 1.5; }
+      button {
+        width: 100%;
+        padding: 0.75rem 1.5rem;
+        background: #3ddc84;
+        color: #2b2240;
+        font: inherit;
+        font-weight: 700;
+        font-size: 1.125rem;
+        border: 2px solid #2b2240;
+        border-radius: 1rem;
+        box-shadow: 2px 2px 0 0 #2b2240;
+        cursor: pointer;
+      }
+      button:active { transform: translate(2px, 2px); box-shadow: none; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <img class="icon" src="/icons/icon-192.png" alt="" width="72" height="72">
+      <div class="emoji" aria-hidden="true">📡</div>
+      <h1>You're offline</h1>
+      <p>GameHub needs an internet connection to play. Check your connection and try again.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

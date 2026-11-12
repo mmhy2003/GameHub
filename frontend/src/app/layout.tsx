@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fredoka, Geist_Mono } from "next/font/google";
 import SwetrixAnalytics from "@/components/SwetrixAnalytics";
 import GameBtnGuard from "@/components/GameBtnGuard";
+import PwaRegister from "@/components/PwaRegister";
 import { getSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -33,6 +34,11 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     authors: [{ name: "GameHub" }],
     creator: "GameHub",
+    appleWebApp: {
+      capable: true,
+      title: "GameHub",
+      statusBarStyle: "default",
+    },
 
     openGraph: {
       type: "website",
@@ -68,6 +74,10 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+export const viewport: Viewport = {
+  themeColor: "#8b5cf6",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -81,6 +91,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-cream text-ink font-sans">
         <SwetrixAnalytics />
         <GameBtnGuard />
+        <PwaRegister />
         {children}
         <noscript>
           <img
