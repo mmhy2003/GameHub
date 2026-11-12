@@ -12,6 +12,7 @@ from .guess_who import GuessWhoLogic
 from .snakes_ladders import SnakesLaddersLogic
 from .stratego import StrategoLogic
 from .tank_battle import TankBattleLogic
+from .snake_arena import SnakeArenaLogic
 
 def get_game_logic(game_type: str):
     if game_type == "tic-tac-toe":
@@ -42,4 +43,6 @@ def get_game_logic(game_type: str):
         return StrategoLogic()
     elif game_type == "tank-battle":
         return TankBattleLogic()
+    elif game_type == "snake-arena":
+        return SnakeArenaLogic()
     return None
