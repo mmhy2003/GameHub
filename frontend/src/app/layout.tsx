@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fredoka, Geist_Mono } from "next/font/google";
 import SwetrixAnalytics from "@/components/SwetrixAnalytics";
 import GameBtnGuard from "@/components/GameBtnGuard";
@@ -33,6 +33,11 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     authors: [{ name: "GameHub" }],
     creator: "GameHub",
+    appleWebApp: {
+      capable: true,
+      title: "GameHub",
+      statusBarStyle: "default",
+    },
 
     openGraph: {
       type: "website",
@@ -67,6 +72,10 @@ export async function generateMetadata(): Promise<Metadata> {
     },
   };
 }
+
+export const viewport: Viewport = {
+  themeColor: "#8b5cf6",
+};
 
 export default function RootLayout({
   children,
