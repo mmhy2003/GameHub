@@ -181,7 +181,54 @@ class SnakeArenaLogic:
         """Called by the server game loop each frame (~30fps)."""
         if self.phase != "playing":
             return
-        self.ticks += 1   # movement, eating and crashes come in the next steps
+        self.ticks += 1   # crashes come in the next step
+        for s in SEATS:
+            sn = self.snakes.get(s)
+            if sn is not None and sn["alive"]:
+                self._move(sn)
+        self._eat()
+        self._refill_food()
+
+    def _move(self, sn: dict):
+        diff = (sn["target"] - sn["angle"] + math.pi) % (2 * math.pi) - math.pi
+        angle = sn["angle"] + max(-MAX_TURN, min(MAX_TURN, diff))
+        sn["angle"] = (angle + math.pi) % (2 * math.pi) - math.pi
+        speed = SPEED
+        if self._boosting(sn):
+            speed = BOOST_SPEED
+            sn["boost_ticks"] += 1
+            if sn["boost_ticks"] % BOOST_COST_TICKS == 0:
+                tx, ty = sn["pts"][-1]
+                self._drop(tx, ty, 1)
+                self._set_len(sn, sn["len"] - 1)
+        head = sn["pts"][0]
+        head[0] += math.cos(sn["angle"]) * speed
+        head[1] += math.sin(sn["angle"]) * speed
+        self._follow(sn["pts"])
+
+    @staticmethod
+    def _follow(pts: list):
+        """Pull each body point toward the one in front so they stay SEG apart."""
+        for i in range(1, len(pts)):
+            px, py = pts[i - 1]
+            x, y = pts[i]
+            d = math.hypot(x - px, y - py)
+            if d > SEG:
+                k = SEG / d
+                pts[i][0] = px + (x - px) * k
+                pts[i][1] = py + (y - py) * k
+
+    def _eat(self):
+        alive = [self.snakes[s] for s in SEATS if s in self.snakes and self.snakes[s]["alive"]]
+        kept = []
+        for f in self.food:
+            eater = next((sn for sn in alive
+                          if math.hypot(sn["pts"][0][0] - f[0], sn["pts"][0][1] - f[1]) < EAT_R), None)
+            if eater is None:
+                kept.append(f)
+            else:
+                self._set_len(eater, eater["len"] + f[2])
+        self.food = kept
 
     def reset(self):
         """Back to the lobby: seats kept, ready flags cleared."""
