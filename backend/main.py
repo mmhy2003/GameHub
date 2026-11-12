@@ -146,6 +146,8 @@ class GameRoom:
 
     async def _game_loop(self):
         tick_rate = 1 / 30
+        # Fixed rate: sleep until the next deadline so the work doesn't slow the clock
+        next_at = time.monotonic()
         while (self.game_logic and
                getattr(self.game_logic, "phase", "") == "playing" and
                len(self.players) > 0):
@@ -158,7 +160,11 @@ class GameRoom:
                 win_name = self.session_names.get(win_sid, win_sym) if win_sid else win_sym
                 await self.broadcast_chat("System", f"{win_name} won the game!")
                 break
-            await asyncio.sleep(tick_rate)
+            next_at += tick_rate
+            now = time.monotonic()
+            if next_at < now - tick_rate:
+                next_at = now     # fell behind by more than a frame: don't burst to catch up
+            await asyncio.sleep(max(0.0, next_at - now))
 
     async def broadcast_state(self):
         # Build display-friendly symbols map: session_id → symbol, plus names

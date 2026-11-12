@@ -148,6 +148,22 @@ export const GAME_RULES: Record<string, GameRule> = {
     tips: ["Your own shells can't hurt you. Break crates to open new lanes and use steel as cover."],
   },
 
+  "snake-arena": {
+    title: "Snake Arena",
+    icon: "🐍",
+    objective: "Be the longest snake when the 3-minute timer ends.",
+    rules: [
+      "2 to 6 players each steer a snake in one big arena: Blue, Pink, Purple, Orange, Green and Yellow.",
+      "Everyone presses Ready. The round starts when all seated players are ready, or when a ready player presses Start (at least 2 ready). Players who are not ready sit the round out.",
+      "Point with the mouse to steer, or use ← / → or A / D. Hold click or Space to boost. On a phone, drag on the arena to steer and hold ⚡ to boost.",
+      "Eat pellets to grow. Boosting is twice as fast but costs length, and you can only boost while longer than 10.",
+      "If your head hits another snake or the edge of the world, you crash. When two heads meet, both crash. You can't crash into yourself.",
+      "A crashed snake turns into big pellets and comes back small after 3 seconds.",
+      "When the timer ends, the longest snake wins. A tie for longest is a draw.",
+    ],
+    tips: ["Boost in front of a rival so they run into your body, then eat the pellets they drop."],
+  },
+
   "minesweeper": {
     title: "Co-op Minesweeper",
     icon: "💣",

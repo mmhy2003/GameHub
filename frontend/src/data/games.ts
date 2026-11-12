@@ -50,6 +50,11 @@ export const GAMES: GameInfo[] = [
     description: "2 to 4 tanks, one arena. Drive, shoot and smash crates. The last tank with hearts left wins!",
   },
   {
+    key: "snake-arena", title: "Snake Arena", cover: "/games/snake_arena_cover.svg", emoji: "🐍",
+    category: "Action", playTime: "3 min", accent: "green", minPlayers: 2, maxPlayers: 6,
+    description: "2 to 6 snakes in one big arena. Eat to grow, make others crash into you, and be the longest when the 3-minute timer ends!",
+  },
+  {
     key: "connect-four", title: "Connect Four", cover: "/games/connect_four_cover.png", emoji: "🔴",
     category: "Classic", playTime: "5 min", accent: "blue", minPlayers: 2, maxPlayers: 2,
     description: "Drop discs and connect four in a row — horizontally, vertically, or diagonally.",
