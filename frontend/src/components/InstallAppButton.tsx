@@ -2,12 +2,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import ToyButton from "@/components/ui/ToyButton";
-
-// Chrome/Edge install event; not in TypeScript's DOM types
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
+import { clearInstallPrompt, useInstallPrompt } from "@/lib/installPrompt";
 
 type Mode = "hidden" | "prompt" | "ios";
 
@@ -35,31 +30,13 @@ function isIosSafari(): boolean {
 /** "Install app" for the home page header (GH-87). Renders nothing where install isn't possible. */
 export default function InstallAppButton() {
   const [mode, setMode] = useState<Mode>("hidden");
-  const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const promptEvent = useInstallPrompt(); // caught app-wide by PwaRegister
   const [showSteps, setShowSteps] = useState(false);
 
   useEffect(() => {
     if (isStandalone() || isInIframe()) return;
-    if (isIosSafari()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reads navigator after hydration
-      setMode("ios");
-      return;
-    }
-    const onPrompt = (e: Event) => {
-      e.preventDefault(); // no mini-infobar; our button offers the install
-      setPromptEvent(e as BeforeInstallPromptEvent);
-      setMode("prompt");
-    };
-    const onInstalled = () => {
-      setPromptEvent(null);
-      setMode("hidden");
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", onInstalled);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads navigator after hydration
+    setMode(isIosSafari() ? "ios" : "prompt");
   }, []);
 
   useEffect(() => {
@@ -75,14 +52,17 @@ export default function InstallAppButton() {
       return;
     }
     if (!promptEvent) return;
-    await promptEvent.prompt();
-    await promptEvent.userChoice;
-    // A prompt event works only once; Chrome fires a new one if install is still possible
-    setPromptEvent(null);
-    setMode("hidden");
+    // Clear first: a second click finds no event, and the button hides even if prompt() rejects
+    clearInstallPrompt();
+    try {
+      await promptEvent.prompt();
+      await promptEvent.userChoice;
+    } catch {
+      // Already shown or no longer allowed; Chrome fires a new event if install is still possible
+    }
   };
 
-  if (mode === "hidden") return null;
+  if (mode === "hidden" || (mode === "prompt" && !promptEvent)) return null;
 
   return (
     <>
