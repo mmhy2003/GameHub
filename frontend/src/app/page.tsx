@@ -1,12 +1,12 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import GameCard from "@/components/GameCard";
 import ToyButton from "@/components/ui/ToyButton";
 import { GAMES, GAME_CATEGORIES, type GameCategory } from "@/data/games";
 import { getSavedRoom, saveRoom, clearSavedRoom } from "@/lib/roomMemory";
 import { getBackendHttpUrl } from "@/lib/backendUrl";
-import { randomRoomCode } from "@/lib/share";
+import { randomRoomCode, copyText, shareLink } from "@/lib/share";
 
 function HomeContent() {
   const router = useRouter();
@@ -24,6 +24,10 @@ function HomeContent() {
   const [roomId, setRoomId] = useState(paramRoom);
   const [savedRoom, setSavedRoom] = useState("");
   const [generatedRoom, setGeneratedRoom] = useState("");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filter, setFilter] = useState<"All" | GameCategory>("All");
   const [tokenError, setTokenError] = useState("");
 
@@ -112,6 +116,11 @@ function HomeContent() {
     setRoomId(code);
   }, [paramRoom]);
 
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+  }, []);
+
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = username.trim();
@@ -144,6 +153,24 @@ function HomeContent() {
     const code = randomRoomCode();
     setGeneratedRoom(code);
     setRoomId(code);
+  };
+
+  const copyCode = async () => {
+    if (!trimmedRoom) return;
+    setCopyStatus((await copyText(trimmedRoom)) ? "copied" : "failed");
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopyStatus("idle"), 1500);
+  };
+
+  const shareRoom = async () => {
+    if (!trimmedRoom) return;
+    const url = `${window.location.origin}/?${new URLSearchParams({ room: trimmedRoom }).toString()}`;
+    const result = await shareLink(url, `Join my GameHub room: ${trimmedRoom}`);
+    // Shared via the sheet or cancelled: nothing to show
+    if (result !== "copied" && result !== "failed") return;
+    setShareStatus(result);
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+    shareTimerRef.current = setTimeout(() => setShareStatus("idle"), 1500);
   };
   const visibleGames = GAMES.filter(g => filter === "All" || g.category === filter);
 
@@ -228,6 +255,12 @@ function HomeContent() {
             </div>
             <div className="flex flex-wrap gap-2">
               <ToyButton color="white" size="sm" onClick={newCode} aria-label="Get a new room code">🔄 New code</ToyButton>
+              <ToyButton color="white" size="sm" onClick={copyCode} disabled={!trimmedRoom} aria-label="Copy room code">
+                {copyStatus === "copied" ? "Copied! ✓" : copyStatus === "failed" ? "Copy failed" : "📋 Copy code"}
+              </ToyButton>
+              <ToyButton color="white" size="sm" onClick={shareRoom} disabled={!trimmedRoom} aria-label="Share room link">
+                {shareStatus === "copied" ? "Link copied! ✓" : shareStatus === "failed" ? "Copy failed" : "🔗 Share link"}
+              </ToyButton>
             </div>
             {showSavedRoom ? (
               <p className="text-sm font-semibold text-ink/80">
