@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import GameCard from "@/components/GameCard";
 import ToyButton from "@/components/ui/ToyButton";
+import InstallAppButton from "@/components/InstallAppButton";
 import { GAMES, GAME_CATEGORIES, type GameCategory } from "@/data/games";
 import { getSavedRoom, saveRoom, clearSavedRoom } from "@/lib/roomMemory";
 import { getBackendHttpUrl } from "@/lib/backendUrl";
@@ -219,20 +220,23 @@ function HomeContent() {
               Grab a friend and play instantly. No sign-ups required.
             </p>
           </div>
-          {paramName ? (
-            <span className="self-start md:self-auto chunk-sm bg-white text-ink font-bold px-3 py-1.5">
-              Playing as {username}
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={changeName}
-              aria-label={`Playing as ${username}. Change name`}
-              className="self-start md:self-auto btn-toy bg-white text-ink font-bold px-3 py-1.5"
-            >
-              Playing as {username} ✏️
-            </button>
-          )}
+          <div className="self-start md:self-auto flex flex-wrap items-center gap-2">
+            {paramName ? (
+              <span className="chunk-sm bg-white text-ink font-bold px-3 py-1.5">
+                Playing as {username}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={changeName}
+                aria-label={`Playing as ${username}. Change name`}
+                className="btn-toy bg-white text-ink font-bold px-3 py-1.5"
+              >
+                Playing as {username} ✏️
+              </button>
+            )}
+            <InstallAppButton />
+          </div>
         </header>
 
         {!paramRoom && (
