@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fredoka, Geist_Mono } from "next/font/google";
 import SwetrixAnalytics from "@/components/SwetrixAnalytics";
 import GameBtnGuard from "@/components/GameBtnGuard";
+import PwaRegister from "@/components/PwaRegister";
 import { getSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -90,6 +91,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-cream text-ink font-sans">
         <SwetrixAnalytics />
         <GameBtnGuard />
+        <PwaRegister />
         {children}
         <noscript>
           <img
