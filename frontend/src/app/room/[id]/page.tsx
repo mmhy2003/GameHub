@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { Send, ArrowLeft, Copy } from "lucide-react";
+import { Send, ArrowLeft, Copy, Share2 } from "lucide-react";
+import { copyText, shareLink } from "@/lib/share";
 import TicTacToe from "@/components/games/TicTacToe";
 import Battleships from "@/components/games/Battleships";
 import Tetris from "@/components/games/Tetris";
@@ -56,6 +57,8 @@ function RoomContent() {
   const chatOpenRef = useRef(chatOpen);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,18 +155,25 @@ function RoomContent() {
 
   useEffect(() => () => {
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
   }, []);
 
+  // One builder for the direct invite link, used by both Copy and Share (GH-80)
+  const inviteLink = () =>
+    `${window.location.origin}/room/${encodeURIComponent(roomId)}?${new URLSearchParams({ game: gameType }).toString()}`;
+
   const handleCopyInvite = async () => {
-    const link = `${window.location.origin}/room/${roomId}?game=${gameType}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopyStatus("copied");
-    } catch {
-      setCopyStatus("failed");
-    }
+    setCopyStatus((await copyText(inviteLink())) ? "copied" : "failed");
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => setCopyStatus("idle"), 1500);
+  };
+
+  const handleShareInvite = async () => {
+    const result = await shareLink(inviteLink(), `Play ${gameType.replace(/-/g, " ")} with me on GameHub!`);
+    if (result !== "copied" && result !== "failed") return;
+    setShareStatus(result);
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+    shareTimerRef.current = setTimeout(() => setShareStatus("idle"), 1500);
   };
 
   const handleRestart = () => {
@@ -270,6 +280,15 @@ function RoomContent() {
                 className="shrink-0 flex items-center gap-1 rounded-lg bg-candy-blue/15 hover:bg-candy-blue/30 px-1.5 py-1 font-sans font-bold transition-colors"
               >
                 {copyStatus === "copied" ? "Copied! ✓" : copyStatus === "failed" ? "Copy failed" : <Copy size={14} />}
+              </button>
+              <button
+                type="button"
+                onClick={handleShareInvite}
+                aria-label="Share invite link"
+                title="Share invite link"
+                className="shrink-0 flex items-center gap-1 rounded-lg bg-candy-blue/15 hover:bg-candy-blue/30 px-1.5 py-1 font-sans font-bold transition-colors"
+              >
+                {shareStatus === "copied" ? "Link copied! ✓" : shareStatus === "failed" ? "Copy failed" : <Share2 size={14} />}
               </button>
             </div>
             <GameHelp gameType={gameType} />
