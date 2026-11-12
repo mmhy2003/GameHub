@@ -181,13 +181,22 @@ class SnakeArenaLogic:
         """Called by the server game loop each frame (~30fps)."""
         if self.phase != "playing":
             return
-        self.ticks += 1   # crashes come in the next step
+        self.ticks += 1
         for s in SEATS:
             sn = self.snakes.get(s)
-            if sn is not None and sn["alive"]:
+            if sn is None:
+                continue
+            if sn["alive"]:
                 self._move(sn)
+            else:
+                sn["respawn"] -= 1
+                if sn["respawn"] <= 0:
+                    self._respawn(s)
         self._eat()
+        self._crashes()
         self._refill_food()
+        if self.ticks >= ROUND_TICKS:
+            self._finish()
 
     def _move(self, sn: dict):
         diff = (sn["target"] - sn["angle"] + math.pi) % (2 * math.pi) - math.pi
@@ -229,6 +238,50 @@ class SnakeArenaLogic:
             else:
                 self._set_len(eater, eater["len"] + f[2])
         self.food = kept
+
+    def _crashes(self):
+        """Walls and other snakes; deaths are applied together so a head-on kills both."""
+        alive = [s for s in SEATS if s in self.snakes and self.snakes[s]["alive"]]
+        dead = set()
+        for s in alive:
+            hx, hy = self.snakes[s]["pts"][0]
+            if hx < HEAD_R or hx > WORLD - HEAD_R or hy < HEAD_R or hy > WORLD - HEAD_R:
+                dead.add(s)
+                continue
+            for o in alive:
+                if o == s:
+                    continue          # never from its own body
+                pts = self.snakes[o]["pts"]
+                if math.hypot(pts[0][0] - hx, pts[0][1] - hy) < HIT:
+                    dead.update((s, o))
+                elif any(math.hypot(x - hx, y - hy) < HIT for x, y in pts[1:]):
+                    dead.add(s)
+        for s in dead:
+            self._kill(s)
+
+    def _kill(self, s: str):
+        sn = self.snakes[s]
+        for x, y in sn["pts"][::2]:
+            self._drop(x, y, 2)
+        sn["alive"] = False
+        sn["boost"] = False
+        sn["respawn"] = RESPAWN_TICKS
+        sn["pts"] = [sn["pts"][0]]   # the head stays so the camera can wait there; len stays for the ranking
+
+    def _finish(self):
+        self.phase = "finished"
+        for sn in self.snakes.values():
+            sn["boost"] = False
+        order = self.ranking()
+        if not order:
+            self.is_draw = True
+            return
+        best = self.snakes[order[0]]["len"]
+        leaders = [s for s in order if self.snakes[s]["len"] == best]
+        if len(leaders) == 1:
+            self.winner = leaders[0]
+        else:
+            self.is_draw = True
 
     def reset(self):
         """Back to the lobby: seats kept, ready flags cleared."""
