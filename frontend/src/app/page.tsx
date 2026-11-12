@@ -1,11 +1,12 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import GameCard from "@/components/GameCard";
 import ToyButton from "@/components/ui/ToyButton";
 import { GAMES, GAME_CATEGORIES, type GameCategory } from "@/data/games";
 import { getSavedRoom, saveRoom, clearSavedRoom } from "@/lib/roomMemory";
 import { getBackendHttpUrl } from "@/lib/backendUrl";
+import { randomRoomCode, copyText, shareLink } from "@/lib/share";
 
 function HomeContent() {
   const router = useRouter();
@@ -22,6 +23,11 @@ function HomeContent() {
   const [isNameSet, setIsNameSet] = useState(false);
   const [roomId, setRoomId] = useState(paramRoom);
   const [savedRoom, setSavedRoom] = useState("");
+  const [generatedRoom, setGeneratedRoom] = useState("");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filter, setFilter] = useState<"All" | GameCategory>("All");
   const [tokenError, setTokenError] = useState("");
 
@@ -34,7 +40,7 @@ function HomeContent() {
   };
 
   const navigate = (game: string) => {
-    const rid = roomId.trim() || Math.random().toString(36).substring(2, 8);
+    const rid = roomId.trim() || randomRoomCode();
     router.push(embedParams(game, rid));
   };
 
@@ -99,10 +105,21 @@ function HomeContent() {
       return;
     }
     const saved = getSavedRoom();
-    if (!saved) return;
-    setSavedRoom(saved);
-    setRoomId(saved);
+    if (saved) {
+      setSavedRoom(saved);
+      setRoomId(saved);
+      return;
+    }
+    // Nothing chosen yet: offer a fresh room. Not saved until the player enters it (GH-80)
+    const code = randomRoomCode();
+    setGeneratedRoom(code);
+    setRoomId(code);
   }, [paramRoom]);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+  }, []);
 
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,11 +144,33 @@ function HomeContent() {
   };
 
   const actionLabel = paramRoom || roomId.trim() ? "Join" : "Create game";
-  const showSavedRoom = savedRoom !== "" && roomId.trim() === savedRoom;
-  const clearRoom = () => {
-    setRoomId("");
-    setSavedRoom("");
+  const trimmedRoom = roomId.trim();
+  const showSavedRoom = savedRoom !== "" && trimmedRoom === savedRoom;
+  const showNewRoom = generatedRoom !== "" && trimmedRoom === generatedRoom;
+  const newCode = () => {
     clearSavedRoom();
+    setSavedRoom("");
+    const code = randomRoomCode();
+    setGeneratedRoom(code);
+    setRoomId(code);
+  };
+
+  const copyCode = async () => {
+    if (!trimmedRoom) return;
+    setCopyStatus((await copyText(trimmedRoom)) ? "copied" : "failed");
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopyStatus("idle"), 1500);
+  };
+
+  const shareRoom = async () => {
+    if (!trimmedRoom) return;
+    const url = `${window.location.origin}/?${new URLSearchParams({ room: trimmedRoom }).toString()}`;
+    const result = await shareLink(url, `Join my GameHub room: ${trimmedRoom}`);
+    // Shared via the sheet or cancelled: nothing to show
+    if (result !== "copied" && result !== "failed") return;
+    setShareStatus(result);
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+    shareTimerRef.current = setTimeout(() => setShareStatus("idle"), 1500);
   };
   const visibleGames = GAMES.filter(g => filter === "All" || g.category === filter);
 
@@ -199,24 +238,37 @@ function HomeContent() {
         {!paramRoom && (
           <section className="chunk bg-candy-yellow p-4 md:p-5 flex flex-col gap-2">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <label htmlFor="room-code" className="font-bold text-lg shrink-0">Have a room code?</label>
+              <label htmlFor="room-code" className="font-bold text-lg shrink-0 flex items-center gap-2">
+                Your room code
+                {showNewRoom && (
+                  <span className="chunk-sm bg-candy-green text-ink text-xs font-bold px-2 py-0.5">New room</span>
+                )}
+              </label>
               <input
                 id="room-code"
                 type="text"
-                placeholder="Paste it here, then pick the game"
+                placeholder="Paste a friend's code here"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
                 className="flex-1 min-w-0 chunk-sm bg-white px-4 py-2 font-mono focus:outline-none"
               />
-              {showSavedRoom && (
-                <ToyButton color="white" size="sm" onClick={clearRoom} aria-label="Clear saved room code" className="shrink-0 self-start sm:self-auto">
-                  ✕ Clear
-                </ToyButton>
-              )}
             </div>
-            {showSavedRoom && (
+            <div className="flex flex-wrap gap-2">
+              <ToyButton color="white" size="sm" onClick={newCode} aria-label="Get a new room code">🔄 New code</ToyButton>
+              <ToyButton color="white" size="sm" onClick={copyCode} disabled={!trimmedRoom} aria-label="Copy room code">
+                {copyStatus === "copied" ? "Copied! ✓" : copyStatus === "failed" ? "Copy failed" : "📋 Copy code"}
+              </ToyButton>
+              <ToyButton color="white" size="sm" onClick={shareRoom} disabled={!trimmedRoom} aria-label="Share room link">
+                {shareStatus === "copied" ? "Link copied! ✓" : shareStatus === "failed" ? "Copy failed" : "🔗 Share link"}
+              </ToyButton>
+            </div>
+            {showSavedRoom ? (
               <p className="text-sm font-semibold text-ink/80">
-                Last room: <span className="font-mono font-bold">{savedRoom}</span>. Pick the next game to play there, or clear it to start a new room.
+                Last room: <span className="font-mono font-bold">{savedRoom}</span>. Pick the next game to play there, or get a new code to start a new room.
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-ink/80">
+                Share this code with a friend, or paste a friend&apos;s code over it. Then pick a game.
               </p>
             )}
           </section>
