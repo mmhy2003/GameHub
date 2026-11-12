@@ -8,6 +8,7 @@ import Tetris from "@/components/games/Tetris";
 import PingPong from "@/components/games/PingPong";
 import PongFour from "@/components/games/PongFour";
 import TankBattle from "@/components/games/TankBattle";
+import SnakeArena from "@/components/games/SnakeArena";
 import ConnectFour from "@/components/games/ConnectFour";
 import RockPaperScissors from "@/components/games/RockPaperScissors";
 import Hangman from "@/components/games/Hangman";
@@ -221,6 +222,8 @@ function RoomContent() {
          return <PongFour ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "tank-battle":
          return <TankBattle ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
+       case "snake-arena":
+         return <SnakeArena ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "connect-four":
          return <ConnectFour ws={ws} gameState={gameState} mySymbol={mySymbol} handleRestart={handleRestart} matchScore={matchScore} />;
        case "rock-paper-scissors":
